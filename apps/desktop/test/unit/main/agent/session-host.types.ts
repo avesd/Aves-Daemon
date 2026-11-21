@@ -8,7 +8,6 @@
 import type { DeepSeekAgentHost } from "../../../../src/main/agent/deepseek-agent-host";
 import type { SessionHost } from "../../../../src/main/agent/session-host";
 
-/** Compile-only calls; this fixture is never executed against an Agent host. */
 export async function executionIdentityCalls(host: SessionHost, direct: DeepSeekAgentHost, executionId: string, connectionId: string): Promise<void> {
 
     await host.prompt("Synthetic prompt", executionId);

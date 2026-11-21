@@ -7,7 +7,6 @@
 
 import type { useRuntimePicker } from "../../../src/runtime-picker/useRuntimePicker";
 
-/** Compile-only checks; no React hook is invoked. */
 export function checkPickerCommands(picker: ReturnType<typeof useRuntimePicker>): void {
 
     picker.chooseProvider("synthetic-provider");

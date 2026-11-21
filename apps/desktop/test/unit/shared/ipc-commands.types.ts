@@ -14,7 +14,6 @@ import type { CanvasApi } from "@avesd/renderer-canvas/contracts";
 import type { ControllerApi } from "@avesd/renderer-controller/contracts";
 import type { IpcMain } from "electron";
 
-/** Compile-only contract checks; intentionally never invoke a real transport. */
 export async function checkWindowCommandTypes(invoke: WindowWireInvoke): Promise<void> {
 
     const voice: {
