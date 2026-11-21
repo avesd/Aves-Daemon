@@ -16,13 +16,15 @@ The clients own native windows and input. The Worker owns Cloudflare bindings. S
 
 ## Development
 
-Run the [macOS overlay prototype](apps/macos/README.md) with `make -C apps/macos run`.
+Run `make` at the root to list the targets defined in `make/`. Build the
+[macOS overlay prototype](apps/macos/README.md) with `make build-macos` or launch
+it with `make run-macos`.
 
-Run `cargo check` from the repository root to check the shared core. To build the Worker for WebAssembly, install the target and build its workspace package:
+Run `make validate` to check the shared Rust core. To build the Worker for WebAssembly, install the target and build its workspace package:
 
 ```sh
 rustup target add wasm32-unknown-unknown
-cargo build -p avesd-worker --target wasm32-unknown-unknown
+make build-worker
 ```
 
 For a local HTTP preview, install the build tool once, then run Wrangler from the Worker directory:
@@ -34,3 +36,10 @@ npx wrangler@4 dev --local
 ```
 
 The scaffold responds to requests with HTTP 404 until application routes are added.
+
+## Maintenance and releases
+
+`make help` lists the reserved maintenance and release targets, including
+`organize`, `update-all`, `iud`, `version-dry-run`, and `version-packages`.
+Each placeholder reports its name and exits with an error so callers can stop
+when a requested operation is unavailable.

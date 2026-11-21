@@ -6,7 +6,7 @@
 - Artifact language: English, following the repository's current files.
 - User communication language: Follow the user.
 - Applicable instructions: Read any applicable `AGENTS.md` and the owning README.
-- Validation command: Run `cargo check` at the repository root for the shared core. For Worker changes, follow the root README and run `cargo build -p avesd-worker --target wasm32-unknown-unknown`. For macOS changes, run `make -C apps/macos build` and check the affected interactions described in the macOS README.
+- Validation command: Run `make validate` at the repository root for the shared core. For Worker changes, run `make build-worker`. For macOS changes, run `make build-macos` and check the affected interactions described in the macOS README.
 
 ## Documentation and terminology
 
@@ -39,7 +39,7 @@
 
 - Maintenance authority: [Cargo.toml](../Cargo.toml), the member manifests, and [Cargo.lock](../Cargo.lock).
 - Toolchain prerequisites: Rust version from `workspace.package.rust-version`. The Worker requires the `wasm32-unknown-unknown` target. The macOS client requires the Swift tools version in [Package.swift](../apps/macos/Package.swift) and the Rust library built by its Makefile.
-- Upgrade, install/update/deduplicate, and toolchain maintenance workflows and previews: Not configured.
+- Upgrade, install/update/deduplicate, and toolchain maintenance workflows and previews: The [maintenance targets](../make/maintenance.mk) are placeholders.
 - Execution order, overlap, and additional update constraints: Not configured.
 - Required tracked outputs: Keep `Cargo.lock` synchronized with the workspace manifests. Keep compiled artifacts local.
 - Validation after maintenance: Run the owning Rust, Worker, or macOS checks for the affected dependencies.
@@ -48,7 +48,7 @@
 ## Version management
 
 - Version authority: Rust crate versions are declared in member manifests. Release workflow, targets, and propagation rules: Not configured.
-- Release input, preview, application, history, no-op behavior, and related checks: Not configured.
+- The [release targets](../make/release.mk) are placeholders. Release inputs, history, and related checks remain unconfigured.
 
 ## Push and CI
 
