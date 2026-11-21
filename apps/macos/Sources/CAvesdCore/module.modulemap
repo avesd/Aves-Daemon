@@ -1,0 +1,5 @@
+module CAvesdCore {
+    header "include/avesd.h"
+    link "avesd_ffi"
+    export *
+}
