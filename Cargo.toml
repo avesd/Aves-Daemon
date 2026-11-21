@@ -1,0 +1,9 @@
+[workspace]
+members = ["crates/avesd-core", "crates/avesd-ffi", "server/worker"]
+default-members = ["crates/avesd-core"]
+resolver = "3"
+
+[workspace.package]
+edition = "2024"
+rust-version = "1.91"
+publish = false
