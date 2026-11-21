@@ -25,7 +25,6 @@ import { blockDataSchema } from "@avesd/workspace-model";
 import type { WebContents } from "electron";
 import { randomUUID } from "node:crypto";
 
-/** One unprivileged document per canvas; host leases still authorize each block separately. */
 export type { DashboardBlockActions } from "./block-runtime-types";
 
 export class DashboardBlockRuntime {

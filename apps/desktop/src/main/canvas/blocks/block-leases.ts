@@ -15,7 +15,6 @@ interface BlockRequest {
     readonly operation: Promise<BlockActionResult>;
 }
 
-/** Lease identity and deduplicated requests share the lifetime of their native owner. */
 export class BlockLeases {
     readonly #entries = new Map<string, BlockLease>();
     readonly #requests = new Map<string, BlockRequest>();
@@ -48,7 +47,6 @@ export class BlockLeases {
     }
     registerRequest(leaseId: string, requestId: string, request: BlockRequest): void {
 
-        // Admission can resume after an asynchronous read has outlived its lease.
         if (this.#entries.has(leaseId)) {
             this.#requests.set(`${leaseId}/${requestId}`, request);
         }

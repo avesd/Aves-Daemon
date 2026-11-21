@@ -153,7 +153,7 @@ export function createCanvasSandbox({ api, canvasId, frame, view, sandbox, error
                 }
             }
         } catch {
-            // A closed canvas or replaced version no longer needs a snapshot.
+            return;
         } finally {
             refreshing = false;
             if (refreshAgain) {

@@ -18,7 +18,6 @@ test("failed replacements preserve the display and capacity for repair, and reje
         const { readFile, writeFile } = process.getBuiltinModule("node:fs/promises");
         const { join } = process.getBuiltinModule("node:path");
         const path = join(app.getPath("userData"), "workspace-v1.json");
-        // The desktop fixture redirects this entire profile to disposable synthetic storage.
         const snapshot = JSON.parse(await readFile(path, "utf8")) as WorkspaceSnapshot;
         const dashboard = snapshot.dashboards[0]!;
         const blocks = Array.from({ length: 64 }, (_, index) => {

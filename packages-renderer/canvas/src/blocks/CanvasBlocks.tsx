@@ -19,7 +19,6 @@ interface Props {
     readonly interact: (event: CanvasSandboxInteraction) => void;
 }
 
-/** One iframe and one message channel, with independently mounted block versions. */
 export function CanvasBlocks({ canvasId, blocks, api, viewport, interact }: Props) {
 
     const frame = useRef<HTMLIFrameElement>(null);

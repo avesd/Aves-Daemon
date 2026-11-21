@@ -134,6 +134,9 @@ be active for a block at a time.
 
 ## Isolation and observation
 
+The [canvas sandbox decision record](decisions/2026-11-20-share-one-sandbox-document-per-canvas.md)
+explains why blocks in one canvas share a document while the host authorizes each block.
+
 The host serves one sandbox runtime per canvas under a random `aves-block:`
 URL. Its iframe uses `allow-scripts allow-forms` and an opaque origin. Source
 changes install only the affected block; the iframe URL, other DOM roots, input

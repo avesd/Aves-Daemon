@@ -740,7 +740,6 @@ void test("runtime dispatch preserves state revisions and ownership across lease
             type: "snapshot",
             leaseId: replacement.leaseId,
         }), { code: IpcErrorCode.PermissionDenied });
-        // Untyped transport input must still pass the strict runtime schema.
         await assert.rejects(Reflect.apply(runtime.invoke, runtime, [
             lease.owner,
             lease.canvasId,
