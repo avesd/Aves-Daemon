@@ -143,5 +143,17 @@ in `.nvmrc` and the pnpm version in `package.json`, then run
 3. Run `make version-packages` to apply the release locally. Review the version
    manifest, consumed notes from `.changeset/`, and the Worker’s
    `.changeset/history/YYYY-QN/{CHANGELOG.md,ledger.yaml}` together.
+4. Merge the prepared release into `main`. The [production workflow](.github/workflows/worker-production.yml)
+   compares the version values before and after the push, tests the Rust code,
+   checks the Wrangler build, and deploys the Worker tagged with its release version.
+   Pending notes, code-only changes and formatting edits do not publish a release.
+   The initial `0.0.0` manifest establishes the baseline. The first minor changeset
+   prepares `0.1.0`.
+
+Before the first production release, create the GitHub Environment
+`avesd-worker-production`, restrict its deployment branches to `main`, and set
+its environment secrets `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN`.
+Use a Cloudflare deployment token scoped to the intended account and Worker
+permissions. Keep `ADSB_LOL_API_KEY`, if used, in the Worker's runtime secrets.
 
 `make help` lists the release commands and reserved maintenance targets.

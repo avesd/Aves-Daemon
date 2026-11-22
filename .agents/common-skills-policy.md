@@ -56,7 +56,8 @@
 
 ## Push and CI
 
-- Push destination, push-triggered effects, CI provider, workflow selection, and completion rules: Not configured.
+- The [production workflow](../.github/workflows/worker-production.yml) deploys
+  a changed Worker version on `main` through the `avesd-worker-production` environment.
 
 ## Plan discussion and review
 
