@@ -47,8 +47,12 @@
 
 ## Version management
 
-- Version authority: Rust crate versions are declared in member manifests. Release workflow, targets, and propagation rules: Not configured.
-- The [release targets](../make/release.mk) are placeholders. Release inputs, history, and related checks remain unconfigured.
+- macOS client version: [apps/macos/version.json](../apps/macos/version.json). Follow the [macOS release workflow](../README.md#macos-client-releases) with `TARGET=apps/macos`.
+- Worker deployment version: [server/worker/version.json](../server/worker/version.json).
+  Rust package versions remain in their member manifests.
+- Follow [Worker releases](../README.md#worker-releases). Pending inputs are root
+  `.changeset/*.md` notes; use `make version-dry-run` for read-only planning and
+  `make version-packages` to prepare a release. The Worker owns quarterly history.
 
 ## Push and CI
 

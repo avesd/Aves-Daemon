@@ -37,9 +37,29 @@ npx wrangler@4 dev --local
 
 The scaffold responds to requests with HTTP 404 until application routes are added.
 
-## Maintenance and releases
+## macOS client releases
 
-`make help` lists the reserved maintenance and release targets, including
-`organize`, `update-all`, `iud`, `version-dry-run`, and `version-packages`.
-Each placeholder reports its name and exits with an error so callers can stop
-when a requested operation is unavailable.
+The client owns [apps/macos/version.json](apps/macos/version.json). From the
+root, use `make changeset TARGET=apps/macos BUMP=minor SUMMARY="Describe the client change."`
+or choose the client in the interactive `make changeset` prompt.
+Preview with `make version-dry-run TARGET=apps/macos` and apply with
+`make version-packages TARGET=apps/macos`. The client keeps its quarterly
+changelog and ledger under `apps/macos/.changeset/history/`. The next
+`make build-macos` embeds the manifest version into the application.
+
+## Worker releases
+
+The production version lives in [server/worker/version.json](server/worker/version.json).
+Rust crate versions track the build packages independently. Use the Node version
+in `.nvmrc` and the pnpm version in `package.json`, then run
+`pnpm install --frozen-lockfile` at the repository root.
+
+1. Record a change with `make changeset`. For non-interactive use, run
+   `make changeset TARGET=server/worker BUMP=patch SUMMARY="Describe the change."`.
+2. Run `make version-dry-run` to preview the next version. The largest requested
+   bump wins. The version rules skip repeated-digit and consecutive-digit versions.
+3. Run `make version-packages` to apply the release locally. Review the version
+   manifest, consumed notes from `.changeset/`, and the Worker’s
+   `.changeset/history/YYYY-QN/{CHANGELOG.md,ledger.yaml}` together.
+
+`make help` lists the release commands and reserved maintenance targets.

@@ -2,3 +2,4 @@
 /apps/macos/.build/
 /server/worker/build/
 /server/worker/.wrangler/
+/node_modules/
