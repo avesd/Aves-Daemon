@@ -29,6 +29,7 @@ final class OverlayApp: NSObject, NSApplicationDelegate {
             .appendingPathComponent("airline-logos"))
     }
     private var statusItem: NSStatusItem?
+    private var polling: Task<Void, Never>?
     private var playback: Task<Void, Never>?
     private var logoLookup: Task<Void, Never>?
     private var didWarmCache = false
@@ -57,6 +58,17 @@ final class OverlayApp: NSObject, NSApplicationDelegate {
         menu.addItem(withTitle: "Quit Aves Daemon", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         status.menu = menu
         statusItem = status
+        if let address = UserDefaults.standard.string(forKey: "eventPollingURL"),
+           let url = URL(string: address), ["http", "https"].contains(url.scheme), url.host != nil {
+            polling = Task {
+                var polling = EventPolling(endpoint: url)
+                await polling.run { [weak self] in self?.showOverlay(.event($0)) ?? false }
+            }
+        }
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        polling?.cancel()
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {

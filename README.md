@@ -65,7 +65,8 @@ It then makes one quiet-response draw per poll. On a play, it picks a pool
 by weight and samples uniformly within that pool. Either pool can supply the
 response when the other is empty. Wrangler variables `EVENT_NEARBY_PERCENT`
 and `EVENT_DROP_PERCENT` accept whole percentages from 0 to 100 and default
-to 70 and 80 respectively.
+to 70 and 80 respectively. With continuously available events and the
+client's 5/10/15-minute cadence, this averages about 31 minutes between plays.
 
 | Event | Eligibility and identity |
 | --- | --- |

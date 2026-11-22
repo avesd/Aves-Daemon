@@ -21,6 +21,24 @@ By default the trail remains for five seconds. Rest the pointer on the summary f
 
 The click-through AppKit panel hosts a SwiftUI view. The summary stays anchored as the frame reveals the details below it. SwiftUI lays out the text and draws the plane and contrails in a Canvas.
 
+## Live events
+
+Set the polling URL to the Worker's event endpoint for your H3 region and
+relaunch the app. For example, with Wrangler running locally:
+
+```sh
+defaults write ai.avesd.daemon eventPollingURL -string 'http://localhost:8787/v1/regions/86283082fffffff/event'
+```
+
+Polling starts after five minutes. The app plays a returned event immediately
+and remembers its ID for three hours across restarts. The next poll is ten
+minutes after playback, then fifteen minutes after consecutive plays. An empty
+response or failed request resets the playback cadence to five minutes. A 503
+with a valid `Retry-After` delays the next request until the later of that
+time and the five-minute interval. Manual
+previews are independent. To disable live polling, delete the preference
+with `defaults delete ai.avesd.daemon eventPollingURL` and relaunch.
+
 ## Typography
 
 The Settings wordmark uses the system's Futura Medium. The flyover uses the macOS serif face for airline names and the system UI face for details, including their localized Chinese glyphs. Flight codes use IBM Plex Mono Medium, the only bundled font. The app registers it for its own process. The font and its OFL notice come from the [pinned Google Fonts distribution](https://github.com/google/fonts/tree/06bfe0d62a98375cb09c942fa18e68bd32cff057/ofl/ibmplexmono).
