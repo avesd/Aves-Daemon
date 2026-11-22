@@ -1,0 +1,12 @@
+{
+  "id": "preview-bridge_lift",
+  "kind": "bridge_lift",
+  "occurred_at": "2026-11-22T15:40:00Z",
+  "data": {
+    "place": "Tower Bridge, London",
+    "local_name": "伦敦塔桥",
+    "time_zone": "Europe/London",
+    "bridge": "Tower Bridge",
+    "reason": "river traffic"
+  }
+}

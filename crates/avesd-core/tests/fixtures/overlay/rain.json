@@ -1,0 +1,52 @@
+{
+  "seed": 42,
+  "frames": [
+    {
+      "elapsed_ms": 0,
+      "reduce_motion": false,
+      "field_opacity": [0.0, 0.0, 0.0, 0.0],
+      "shapes": []
+    },
+    {
+      "elapsed_ms": 150,
+      "reduce_motion": false,
+      "field_opacity": [0.0, 0.0, 0.0, 0.0],
+      "shapes": [
+        {"kind": "bead", "origin": [-3.203895, -29.842084], "size": [8.0, 10.0], "opacity": 1.0}
+      ]
+    },
+    {
+      "elapsed_ms": 604,
+      "reduce_motion": false,
+      "field_opacity": [0.780147, 0.347615, 0.026376, 0.0],
+      "shapes": [
+        {"kind": "ellipse", "center": [0.0, 20.0], "radii": [9.79689, 2.36344], "opacity": 0.405642, "stroke_width": 1.0},
+        {"kind": "arc", "center": [0.0, 20.0], "radii": [9.79689, 2.36344], "opacity": 0.212182, "stroke_width": 1.0, "start_deg": 32.0, "sweep_deg": 106.0},
+        {"kind": "line", "from": [-5.52154, 9.949379], "to": [-5.97154, 12.749379], "opacity": 0.55, "stroke_width": 0.95}
+      ]
+    },
+    {
+      "elapsed_ms": 1000,
+      "reduce_motion": false,
+      "field_opacity": [1.0, 1.0, 1.0, 1.0],
+      "shapes": [
+        {"kind": "ellipse", "center": [0.0, 20.0], "radii": [17.178729, 3.692171], "opacity": 0.11364, "stroke_width": 1.0},
+        {"kind": "arc", "center": [0.0, 20.0], "radii": [17.178729, 3.692171], "opacity": 0.059443, "stroke_width": 1.0, "start_deg": 32.0, "sweep_deg": 106.0},
+        {"kind": "ellipse", "center": [-7.003159, 21.019793], "radii": [6.855763, 1.834037], "opacity": 0.14935, "stroke_width": 0.8},
+        {"kind": "ellipse", "center": [5.600066, 21.995478], "radii": [1.369166, 0.84645], "opacity": 0.317823, "stroke_width": 0.8}
+      ]
+    },
+    {
+      "elapsed_ms": 2500,
+      "reduce_motion": false,
+      "field_opacity": [1.0, 1.0, 1.0, 1.0],
+      "shapes": []
+    },
+    {
+      "elapsed_ms": 150,
+      "reduce_motion": true,
+      "field_opacity": [1.0, 1.0, 1.0, 1.0],
+      "shapes": []
+    }
+  ]
+}

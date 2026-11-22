@@ -1,0 +1,14 @@
+{
+  "id": "preview-last_train",
+  "kind": "last_train",
+  "occurred_at": "2026-11-22T14:54:00Z",
+  "data": {
+    "place": "Ueno Station, Tokyo",
+    "local_name": "东京",
+    "time_zone": "Asia/Tokyo",
+    "station": "Ueno",
+    "line": "Ginza Line",
+    "destination": "浅草",
+    "destination_name": "Asakusa"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "id": "preview-sunrise",
+  "kind": "sunrise",
+  "occurred_at": "2026-11-22T07:26:00Z",
+  "data": {
+    "place": "Lisbon, Portugal",
+    "local_name": "里斯本",
+    "time_zone": "Europe/Lisbon",
+    "minutes_later_than_yesterday": 1
+  }
+}

@@ -9,4 +9,6 @@ publish.workspace = true
 crate-type = ["cdylib"]
 
 [dependencies]
+avesd-events = { path = "../avesd-events" }
+serde_json = "1"
 avesd-core = { path = "../avesd-core" }

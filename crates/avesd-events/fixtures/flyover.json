@@ -1,0 +1,19 @@
+{
+  "id": "preview-flyover",
+  "kind": "flyover",
+  "occurred_at": "2026-11-22T17:30:00Z",
+  "data": {
+    "aircraft_id": "icao24:a1b2c3",
+    "airline_code": "UA",
+    "airline_name": "United Airlines",
+    "airline_mark": "united-airlines",
+    "flight_number": "UA 839",
+    "callsign": "UAL839",
+    "origin": "LAX",
+    "destination": "SYD",
+    "origin_name": "Los Angeles International",
+    "destination_name": "Sydney Airport",
+    "aircraft_type": "787-9",
+    "model": "Boeing 787-9 Dreamliner"
+  }
+}

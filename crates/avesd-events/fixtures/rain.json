@@ -1,0 +1,12 @@
+{
+  "id": "preview-rain",
+  "kind": "rain",
+  "occurred_at": "2026-11-22T09:42:00Z",
+  "data": {
+    "place": "Kyoto, Japan",
+    "local_name": "京都",
+    "time_zone": "Asia/Tokyo",
+    "previous_intensity": "light",
+    "current_intensity": "heavy"
+  }
+}

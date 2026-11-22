@@ -4,3 +4,16 @@ version = "0.1.0"
 edition.workspace = true
 rust-version.workspace = true
 publish.workspace = true
+
+[features]
+default = ["overlay"]
+overlay = ["dep:avesd-events", "dep:serde", "dep:chrono-tz"]
+
+[dependencies]
+avesd-events = { path = "../avesd-events", optional = true }
+chrono-tz = { version = "0.10", optional = true }
+serde = { version = "1", features = ["derive"], optional = true }
+h3o = { version = "0.9", default-features = false }
+
+[dev-dependencies]
+serde_json = "1"

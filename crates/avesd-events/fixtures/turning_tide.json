@@ -1,0 +1,11 @@
+{
+  "id": "preview-turning_tide",
+  "kind": "turning_tide",
+  "occurred_at": "2026-11-22T15:08:00Z",
+  "data": {
+    "place": "Port of Saint-Malo",
+    "local_name": "圣马洛",
+    "time_zone": "Europe/Paris",
+    "turn": "high_to_falling"
+  }
+}
