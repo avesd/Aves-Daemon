@@ -2,7 +2,7 @@
 
 ## Repository profile
 
-- Repository purpose: Develop native Avesd clients, a shared Rust core and C ABI, and a Cloudflare Worker. See [README.md](../README.md).
+- Repository purpose: Develop native Aves Daemon clients, a shared Rust core and C ABI, and a Cloudflare Worker. See [README.md](../README.md).
 - Artifact language: English, following the repository's current files.
 - User communication language: Follow the user.
 - Applicable instructions: Read any applicable `AGENTS.md` and the owning README.
@@ -23,7 +23,7 @@
 
 ## Git repositories and commits
 
-- Root repository: Avesd at `.`.
+- Root repository: Aves Daemon at `.`.
 - Included nested repositories: None declared.
 - Excluded repositories and paths: Do not include nested repositories, local secrets, or generated build output such as `target/` and `apps/macos/.build/`. The macOS Makefile writes the Rust library under `apps/macos/.build/rust/`.
 - Nested-repository commit order: Not applicable.

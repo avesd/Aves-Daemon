@@ -14,8 +14,10 @@ let package = Package(
         .executableTarget(
             name: "AvesdOverlay",
             dependencies: ["CAvesdCore"],
+            resources: [.copy("Fonts")],
             linkerSettings: [
-                .unsafeFlags(["-L", rustLibraryDirectory, "-Xlinker", "-rpath", "-Xlinker", "@loader_path/../../rust/debug"])
+                .unsafeFlags(["-L", rustLibraryDirectory, "-Xlinker", "-rpath", "-Xlinker", "@loader_path/../Frameworks",
+                              "-Xlinker", "-rpath", "-Xlinker", "@loader_path/../../rust/debug"])
             ]
         )
     ]
