@@ -35,7 +35,7 @@ typedef struct {
 typedef struct {
     AvesdRainShape shapes[5];  // Paint the first count entries in order.
     uint32_t count;
-    double field_opacity[4];  // Icon, city, rain trend, local time.
+    double field_opacity[4];  // Icon, headline, secondary, trailing field.
 } AvesdRainFrame;
 
 AvesdRainShower avesd_rain_shower(uint64_t seed);

@@ -9,7 +9,7 @@ should be enough to recognize what happened. Curiosity can do the rest.
 Choose a small visual anchor whose movement belongs to the event. In a flyover,
 the plane crosses the screen edge and reveals the route in its wake. In the rain
 preview, the first drop lands just below the icon. A ripple spreads from that
-point as the city, change in rainfall, and local time appear. Each gesture gives
+point as the city and rain message appear. Each gesture gives
 the eye a place to start and leads it naturally to the summary.
 
 ## Let the reader learn the panel once

@@ -83,6 +83,19 @@ impl<'a> Content<'a> {
             return Some(content);
         }
         let (place, change, detail): (&Place, &str, String) = match &event.payload {
+            Rain(r) if r.previous_intensity.is_none() && r.current_intensity.is_none() => {
+                content.headline = r.place.local_name.as_deref().unwrap_or(&r.place.place);
+                content.secondary = "正在下雨";
+                content.title = &r.place.place;
+                content.caption = if preview { "Sample" } else { "" };
+                content.rows.push(("Event", "Rain".into()));
+                content.accessibility = format!(
+                    "Rain in {}.{}",
+                    r.place.place,
+                    if preview { " Sample event." } else { "" }
+                );
+                return Some(content);
+            }
             Rain(r) => {
                 let change = match r.current_intensity.cmp(&r.previous_intensity) {
                     std::cmp::Ordering::Greater => "雨势转强",
@@ -91,8 +104,8 @@ impl<'a> Content<'a> {
                 };
                 let mut text = format!(
                     "{} to {} rain",
-                    intensity(r.previous_intensity),
-                    intensity(r.current_intensity)
+                    intensity(r.previous_intensity?),
+                    intensity(r.current_intensity?)
                 );
                 text[..1].make_ascii_uppercase();
                 (&r.place, change, text)

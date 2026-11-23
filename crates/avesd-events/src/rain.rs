@@ -14,6 +14,8 @@ pub enum Intensity {
 pub struct Rain {
     #[serde(flatten)]
     pub place: Place,
-    pub previous_intensity: Intensity,
-    pub current_intensity: Intensity,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub previous_intensity: Option<Intensity>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub current_intensity: Option<Intensity>,
 }

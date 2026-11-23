@@ -134,15 +134,24 @@ mod tests {
             anchor_x: 65.,
             reduced: false,
         };
+        let mut legacy_rain = record.clone();
+        legacy_rain["data"]["previous_intensity"] = json!("light");
+        legacy_rain["data"]["current_intensity"] = json!("heavy");
         let mut unknown = record.clone();
         unknown["kind"] = json!("future_event");
-        for (data, supported) in [(unknown, false), (record, true)] {
+        for (data, expected) in [
+            (unknown, None),
+            (legacy_rain, Some(("雨势转强", "10:42"))),
+            (record, Some(("正在下雨", ""))),
+        ] {
             let bytes = serde_json::to_vec(&data).unwrap();
             let session = unsafe { avesd_overlay_create(bytes.as_ptr(), bytes.len(), options()) };
-            assert_eq!(session.is_some(), supported);
+            assert_eq!(session.is_some(), expected.is_some());
             if let Some(session) = session {
                 let content: Value = serde_json::from_slice(session.content.as_bytes()).unwrap();
-                assert_eq!(content["trailing"], "10:42");
+                let (message, trailing) = expected.unwrap();
+                assert_eq!(content["secondary"], message);
+                assert_eq!(content["trailing"], trailing);
                 assert_eq!(content["caption"], "");
                 assert!(
                     !content["accessibility"]

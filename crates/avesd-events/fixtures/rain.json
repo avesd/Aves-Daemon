@@ -5,8 +5,6 @@
   "data": {
     "place": "Kyoto, Japan",
     "local_name": "京都",
-    "time_zone": "Asia/Tokyo",
-    "previous_intensity": "light",
-    "current_intensity": "heavy"
+    "time_zone": "Asia/Tokyo"
   }
 }

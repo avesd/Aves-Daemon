@@ -4,7 +4,7 @@ Use the Node version in the root `.nvmrc` and run `pnpm install --frozen-lockfil
 
 Run `make run` here to build and open `.build/Aves Daemon.app`. Click the bird in the macOS menu bar and choose **Preview Flyover**. The app runs as a menu bar accessory without a Dock icon. The preview uses a sample United Airlines flight from Los Angeles to Sydney. The plane crosses the upper-right corner of the display containing the pointer and reveals its carrier mark, route, callsign, and aircraft type in its wake. Reduce Motion shows the summary in place.
 
-Choose **Preview Rain** for a sample Kyoto observation at 18:42 JST. Each preview generates a fresh shower. The first drop lands below the icon slot and sends out a ripple as the city, rain trend, and time appear in sequence. The smaller drops vary in timing and position. All previews share the same screen position, summary width, hover behavior, and display duration. Reduce Motion shows the complete summary in place.
+Choose **Preview Rain** for a sample shower in Kyoto. Each preview generates a fresh shower. The first drop lands below the icon slot and sends out a ripple as the city and rain message appear. The smaller drops vary in timing and position. All previews share the same screen position, summary width, hover behavior, and display duration. Reduce Motion shows the complete summary in place.
 
 All six previews use the [shared event and playback contracts](../../README.md#event-data-and-playback). The [session adapter](Sources/AvesdOverlay/Overlay/OverlaySession.swift) measures the native hover area and reads one frame per tick. The [Canvas renderer](Sources/AvesdOverlay/Overlay/ArtworkCanvas.swift) paints the two artwork layers while SwiftUI manages text, accessibility, and window layout.
 

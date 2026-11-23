@@ -31,6 +31,8 @@ struct AboutView: View {
             }
             Text("A menu bar app that previews passing aircraft at the edge of your screen.")
                 .fixedSize(horizontal: false, vertical: true)
+            Text("Rain summaries use [MET Norway](https://www.met.no/en) forecasts under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).")
+                .font(.caption)
             HStack {
                 Link("avesd.ai", destination: URL(string: "https://avesd.ai")!)
                 Spacer()
