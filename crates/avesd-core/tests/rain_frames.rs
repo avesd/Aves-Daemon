@@ -1,5 +1,3 @@
-#![cfg(feature = "overlay")]
-
 use avesd_core::rain::{RainShower, ShapeKind};
 use serde_json::{Value, json};
 

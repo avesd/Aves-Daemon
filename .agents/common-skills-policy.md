@@ -2,11 +2,11 @@
 
 ## Repository profile
 
-- Repository purpose: Develop native Aves Daemon clients, a shared Rust core and C ABI, and a Cloudflare Worker. See [README.md](../README.md).
+- Repository purpose: Develop native Aves Daemon clients and their shared Rust core and C ABI. See [README.md](../README.md).
 - Artifact language: English, following the repository's current files.
 - User communication language: Follow the user.
 - Applicable instructions: Read any applicable `AGENTS.md` and the owning README.
-- Validation command: Run `make validate` at the repository root for the shared core. For Worker changes, run `make build-worker`. For macOS changes, run `make build-macos` and check the affected interactions described in the macOS README.
+- Validation command: Run `make validate` at the repository root for the Rust workspace and macOS release tools. For macOS changes, run `make build-macos` and check the affected interactions described in the macOS README.
 
 ## Documentation and terminology
 
@@ -38,26 +38,17 @@
 ## Dependency maintenance
 
 - Maintenance authority: [Cargo.toml](../Cargo.toml), the member manifests, and [Cargo.lock](../Cargo.lock).
-- Toolchain prerequisites: Rust version from `workspace.package.rust-version`. The Worker requires the `wasm32-unknown-unknown` target. The macOS client requires the Swift tools version in [Package.swift](../apps/macos/Package.swift) and the Rust library built by its Makefile.
+- Toolchain prerequisites: Rust version from `workspace.package.rust-version`. The macOS client requires the Swift tools version in [Package.swift](../apps/macos/Package.swift) and the Rust library built by its Makefile.
 - Upgrade, install/update/deduplicate, and toolchain maintenance workflows and previews: The [maintenance targets](../make/maintenance.mk) are placeholders.
 - Execution order, overlap, and additional update constraints: Not configured.
 - Required tracked outputs: Keep `Cargo.lock` synchronized with the workspace manifests. Keep compiled artifacts local.
-- Validation after maintenance: Run the owning Rust, Worker, or macOS checks for the affected dependencies.
+- Validation after maintenance: Run the owning Rust or macOS checks for the affected dependencies.
 - Recovery restrictions: Not configured.
 
 ## Version management
 
 - macOS client version: [apps/macos/version.json](../apps/macos/version.json). Follow the [macOS release workflow](../README.md#macos-client-releases) with `TARGET=apps/macos`.
-- Worker deployment version: [server/worker/version.json](../server/worker/version.json).
-  Rust package versions remain in their member manifests.
-- Follow [Worker releases](../README.md#worker-releases). Pending inputs are root
-  `.changeset/*.md` notes; use `make version-dry-run` for read-only planning and
-  `make version-packages` to prepare a release. The Worker owns quarterly history.
-
-## Push and CI
-
-- The [production workflow](../.github/workflows/worker-production.yml) deploys
-  a changed Worker version on `main` through the `avesd-worker-production` environment.
+- Use `make version-dry-run` to preview pending changes and `make version-packages` to prepare the release and quarterly history.
 
 ## Plan discussion and review
 

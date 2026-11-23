@@ -1,4 +1,5 @@
 .PHONY: validate
 
 validate:
-	cargo check
+	cargo test --locked --workspace
+	node --test scripts/release/test/macos-release.test.ts

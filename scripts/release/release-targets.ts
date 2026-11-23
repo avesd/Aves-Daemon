@@ -38,9 +38,10 @@ export const readVersion = (
 
 export const discoverReleaseTargets = (root: string): readonly ReleaseTarget[] => {
 
-    return ["server/worker", "apps/macos"].map((path): ReleaseTarget => ({
+    const path = "apps/macos";
+    return [{
         path,
         kind: "deployment",
         currentVersion: readVersion(root, path, "deployment"),
-    }));
+    }];
 };

@@ -1,7 +1,5 @@
 //! An occurrence has a stable ID and timestamp. Its payload describes world facts.
-pub mod aircraft;
 pub mod bridge_lift;
-pub mod bridges;
 pub mod flyover;
 pub mod last_train;
 pub mod rain;

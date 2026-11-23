@@ -1,7 +1,7 @@
 .PHONY: help
 
 help:
-	@printf '%s\n' 'Development: build-macos run-macos build-worker' \
-		'Checks: validate (shared Rust core)' \
+	@printf '%s\n' 'Development: build-macos run-macos' \
+		'Checks: validate (Rust workspace and macOS release tests)' \
 		'Maintenance placeholders: $(MAINTENANCE_TARGETS)' \
-		'Worker and macOS releases: $(RELEASE_TARGETS)'
+		'macOS releases: $(RELEASE_TARGETS)'

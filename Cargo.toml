@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/avesd-events", "crates/avesd-core", "crates/avesd-ffi", "server/worker"]
+members = ["crates/avesd-events", "crates/avesd-core", "crates/avesd-ffi"]
 default-members = ["crates/avesd-core"]
 resolver = "3"
 

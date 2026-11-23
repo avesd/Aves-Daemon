@@ -1,5 +1,3 @@
-#![cfg(feature = "overlay")]
-
 use avesd_core::overlay::{content::Content, effects::Layout, frame::Op, playback::Playback};
 use avesd_events::Event;
 use serde_json::{Value, json};

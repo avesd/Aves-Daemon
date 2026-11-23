@@ -7,9 +7,9 @@ export AVESD_CHANGESET_SUMMARY := $(SUMMARY)
 
 .PHONY: $(RELEASE_TARGETS)
 
-version-dry-run version-packages: TARGET ?= server/worker
+version-dry-run version-packages: TARGET ?= apps/macos
 ifneq ($(strip $(SUMMARY)),)
-changeset: TARGET ?= server/worker
+changeset: TARGET ?= apps/macos
 endif
 
 changeset:
