@@ -7,6 +7,9 @@
 extern "C" {
 #endif
 
+// Resolution-six H3 cell for coordinates in degrees, or zero for invalid input.
+uint64_t avesd_region_cell(double latitude, double longitude);
+
 uint64_t avesd_next_click_count(uint64_t current);
 
 typedef struct {

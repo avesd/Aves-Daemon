@@ -14,6 +14,10 @@
     <string>1</string>
     <key>LSMinimumSystemVersion</key>
     <string>13.0</string>
+    <key>NSLocationUsageDescription</key>
+    <string>Use your approximate area to find nearby flights. Only the area is sent to Murmur.</string>
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>Use your approximate area to find nearby flights. Only the area is sent to Murmur.</string>
     <key>LSUIElement</key>
     <true/>
 </dict>

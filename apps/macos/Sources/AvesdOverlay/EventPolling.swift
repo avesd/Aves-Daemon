@@ -2,7 +2,7 @@ import Foundation
 
 @MainActor
 struct EventPolling {
-    let endpoint: URL
+    let endpoint: () -> URL?
     let defaults: UserDefaults
     let session: URLSession
     private(set) var delayMinutes = 5
@@ -12,34 +12,36 @@ struct EventPolling {
     }
     private let historyKey = "recentlyPlayedEvents"
 
-    init(endpoint: URL, defaults: UserDefaults = .standard, session: URLSession = .shared) {
+    init(endpoint: @escaping () -> URL?, defaults: UserDefaults = .standard, session: URLSession = .shared) {
         self.endpoint = endpoint
         self.defaults = defaults
         self.session = session
     }
 
-    mutating func run(play: (Data) -> Bool) async {
+    mutating func run(beforePoll: () -> Void, play: (Data) -> Bool) async {
         while !Task.isCancelled {
             do { try await Task.sleep(for: .seconds(nextDelaySeconds)) }
             catch { return }
+            beforePoll()
             await poll(play: play)
         }
     }
 
     mutating func poll(play: (Data) -> Bool) async {
+        guard let destination = endpoint() else { return }
         let cutoff = Date().addingTimeInterval(-3 * 60 * 60)
         var history = (defaults.dictionary(forKey: historyKey) as? [String: Date] ?? [:])
             .filter { $0.value > cutoff }
         defaults.set(history, forKey: historyKey)
         let query = history.keys.sorted().map { URLQueryItem(name: "played", value: $0) }
-        let request = URLRequest(url: endpoint.appending(queryItems: query),
+        let request = URLRequest(url: destination.appending(queryItems: query),
                                  cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 30)
         struct Header: Decodable { let id: String }
         let previousDelay = delayMinutes
         delayMinutes = 5
         retryAfterSeconds = 0
         guard let (data, response) = try? await session.data(for: request),
-              !Task.isCancelled, let http = response as? HTTPURLResponse else { return }
+              !Task.isCancelled, endpoint() == destination, let http = response as? HTTPURLResponse else { return }
         if http.statusCode == 503, let header = http.value(forHTTPHeaderField: "Retry-After") {
             retryAfterSeconds = Self.retryDelay(header, now: Date())
             return

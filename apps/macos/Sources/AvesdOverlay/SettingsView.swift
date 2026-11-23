@@ -7,7 +7,10 @@ enum OverlayPreferences {
     static let defaultDuration = 5
 
     static func register() {
-        UserDefaults.standard.register(defaults: [durationKey: defaultDuration, prefetchKey: true])
+        UserDefaults.standard.register(defaults: [
+            durationKey: defaultDuration,
+            prefetchKey: true,
+        ])
     }
 
     static var duration: TimeInterval {
@@ -17,6 +20,7 @@ enum OverlayPreferences {
 }
 
 struct SettingsView: View {
+    @ObservedObject var region: EventRegion
     let cache: AirlineLogoCache?
     let previewFlight: () -> Void
     let previewRain: () -> Void
@@ -52,6 +56,7 @@ struct SettingsView: View {
 
     private var settingsForm: some View {
         Form {
+            RegionSettings(region: region)
             Section("Screen-edge previews") {
                 Picker("Display duration", selection: $duration) {
                     ForEach(OverlayPreferences.durations, id: \.self) { seconds in

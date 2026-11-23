@@ -21,23 +21,9 @@ By default the trail remains for five seconds. Rest the pointer on the summary f
 
 The click-through AppKit panel hosts a SwiftUI view. The summary stays anchored as the frame reveals the details below it. SwiftUI lays out the text and draws the plane and contrails in a Canvas.
 
-## Live events
+## Live playback
 
-Set the polling URL to the Worker's event endpoint for your H3 region and
-relaunch the app. For example, with Wrangler running locally:
-
-```sh
-defaults write ai.avesd.daemon eventPollingURL -string 'http://localhost:8787/v1/regions/86283082fffffff/event'
-```
-
-Polling starts after five minutes. The app plays a returned event immediately
-and remembers its ID for three hours across restarts. The next poll is ten
-minutes after playback, then fifteen minutes after consecutive plays. An empty
-response or failed request resets the playback cadence to five minutes. A 503
-with a valid `Retry-After` delays the next request until the later of that
-time and the five-minute interval. Manual
-previews are independent. To disable live polling, delete the preference
-with `defaults delete ai.avesd.daemon eventPollingURL` and relaunch.
+The open-source app connects automatically to Murmur, a free, closed-source event service. The feed includes events from the selected area and around the world. Kyoto is the default. Choose **Use My Location for Nearby Flights** from the menu bar to request a one-time location fix. The app converts it to a regional cell on the Mac and sends only that cell to Murmur. It refreshes the area after wake or when the last fix is 24 hours old. To follow another place without location access, open **Settings → Nearby flights → Choose Place…**, search by city and country, and select the result. Place searches use Apple’s geocoder. Select **Use Kyoto (Default)** to reset the area. The app remembers which events it has shown for three hours across restarts. Manual previews are available from the menu bar.
 
 ## Typography
 

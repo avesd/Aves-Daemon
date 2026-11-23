@@ -22,6 +22,7 @@ final class OverlayPanel: NSPanel {
 @MainActor
 final class OverlayApp: NSObject, NSApplicationDelegate {
     private let state = OverlaySession()
+    private let region = EventRegion()
     private let panel = OverlayPanel(size: OverlayLayout.panelSize)
     private lazy var host = NSHostingView(rootView: OverlayView(state: state))
     private let cache = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first.map {
@@ -53,21 +54,35 @@ final class OverlayApp: NSObject, NSApplicationDelegate {
             item.representedObject = event.rawValue
             item.target = self
         }
+        if !region.hasCustomFeed {
+            menu.addItem(withTitle: "Use My Location for Nearby Flights",
+                         action: #selector(useMyLocation), keyEquivalent: "").target = self
+        }
         menu.addItem(withTitle: "Settings…", action: #selector(showSettings), keyEquivalent: ",").target = self
         menu.addItem(.separator())
         menu.addItem(withTitle: "Quit Aves Daemon", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         status.menu = menu
         statusItem = status
-        if let address = UserDefaults.standard.string(forKey: "eventPollingURL"),
-           let url = URL(string: address), ["http", "https"].contains(url.scheme), url.host != nil {
-            polling = Task {
-                var polling = EventPolling(endpoint: url)
-                await polling.run { [weak self] in self?.showOverlay(.event($0)) ?? false }
+        region.refreshIfNeeded()
+        NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(didWake),
+            name: NSWorkspace.didWakeNotification, object: nil)
+        polling = Task { [region] in
+            var polling = EventPolling(endpoint: { region.endpoint })
+            await polling.run(beforePoll: { region.refreshIfNeeded() }) { [weak self] in
+                self?.showOverlay(.event($0)) ?? false
             }
         }
     }
 
+    @objc private func didWake() { region.refreshIfNeeded(afterWake: true) }
+
+    @objc private func useMyLocation() {
+        showSettings()
+        region.useMyLocation()
+    }
+
     func applicationWillTerminate(_ notification: Notification) {
+        NSWorkspace.shared.notificationCenter.removeObserver(self)
         polling?.cancel()
     }
 
@@ -78,7 +93,7 @@ final class OverlayApp: NSObject, NSApplicationDelegate {
 
     @objc private func showSettings() {
         if settingsController == nil {
-            let settings = SettingsView(cache: cache, previewFlight: { [weak self] in self?.preview() },
+            let settings = SettingsView(region: region, cache: cache, previewFlight: { [weak self] in self?.preview() },
                                         previewRain: { [weak self] in self?.previewRain() },
                                         previewWorld: { [weak self] event in self?.present(event) },
                                         changePrefetch: { [weak self] enabled in self?.setPrefetch(enabled) },

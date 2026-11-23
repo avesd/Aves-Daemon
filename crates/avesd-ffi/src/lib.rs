@@ -19,4 +19,9 @@ pub extern "C" fn avesd_rain_frame(
     shower.frame(elapsed_ms, reduced)
 }
 
+#[unsafe(no_mangle)]
+pub extern "C" fn avesd_region_cell(latitude: f64, longitude: f64) -> u64 {
+    avesd_core::region::cell(latitude, longitude).unwrap_or(0)
+}
+
 mod overlay;
