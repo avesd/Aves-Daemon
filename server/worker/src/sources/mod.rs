@@ -1,5 +1,6 @@
 mod adsb;
 pub mod aircraft;
+pub mod bridges;
 pub mod noaa;
 pub mod places;
 pub mod solar;

@@ -19,3 +19,6 @@ wasm-bindgen = "0.2"
 chrono-tz = "0.10"
 sunrise = { version = "3", default-features = false, features = ["std"] }
 futures-util = "0.3"
+flate2 = { version = "1", default-features = false, features = ["rust_backend"] }
+roxmltree = "0.21"
+scraper = { version = "0.25", default-features = false }

@@ -81,6 +81,26 @@ map supported scopes to occurrences with stable IDs and expiry. Register a new
 provider there. The [service](server/worker/src/service.rs) owns playback history
 filtering, quiet responses and scope selection.
 
+### Bridge source snapshots
+
+`GET /v1/bridges/{source}` returns a JSON snapshot with `source`, UTC
+`fetched_at`, and `records`. The [wire types](crates/avesd-events/src/bridges.rs)
+preserve each upstream's time and status semantics. Fetch time is the time the
+Worker read the snapshot. A cache hit preserves that timestamp.
+
+| Source | Coverage and record meaning | Cache |
+| --- | --- | --- |
+| `seaway` | The St. Lawrence Seaway operator's [St. Catharines/Thorold](https://www.seaway-greatlakes.com/bridgestatus/detailsnai?key=BridgeSCT), [Port Colborne](https://www.seaway-greatlakes.com/bridgestatus/detailsnai?key=BridgePC), and [Montréal South Shore](https://www.seaway-greatlakes.com/bridgestatus/detailsmai?key=BridgeM) status pages. Each status item keeps the operator's wording. Raised-since and next-arrival times, when available, are local clock readings in America/Toronto with no date. All three pages must succeed for a complete snapshot. | 1 minute |
+| `tower_bridge` | [Tower Bridge timetable](https://www.towerbridge.org.uk/flat/lift-times). Each published row supplies a scheduled UTC time, vessel description and travel direction. Multiple rows can share a lift time. | 15 minutes |
+| `sdot` | [Seattle drawbridge history](https://cos-data.seattle.gov/Transportation/SDOT-Drawbridge-Status/gm8h-9449). The latest 50 bridge records report completed openings, with local opening and closing timestamps in America/Los_Angeles. SDOT publishes daily. | 1 hour |
+| `ndw` | The Dutch [DATEX II bridge feed](https://opendata.ndw.nu/planningsfeed_brugopeningen.xml.gz) supplies road measures at coded locations. Each record keeps its probability, action status, validity status and interval. The snapshot also includes the original UTC publication time. | 1 minute |
+
+These snapshots can be queried independently of event polling. Upstream failures
+return 503. An upstream HTTP retry delay is forwarded when available.
+To probe all four sources with the Worker's parsers, run
+`cargo test --locked -p avesd-worker live_bridge_sources -- --ignored --nocapture`
+with network access and curl installed.
+
 ### Regional aircraft snapshots
 
 Call `GET /v1/regions/{region_id}/aircraft` with a canonical lowercase H3 cell ID
