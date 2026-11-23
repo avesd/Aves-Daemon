@@ -38,40 +38,43 @@ struct Pools {
     world: Vec<Candidate>,
 }
 
-enum Decision {
-    Play(Event),
+enum Decision<'a> {
+    Play(&'a Event),
     Quiet,
     Empty,
 }
 
 impl Pools {
-    fn choose(
-        mut self,
+    fn choose<'a>(
+        &'a self,
         now: DateTime<Utc>,
         played: &[String],
         policy: &Policy,
         mut random: impl FnMut() -> f64,
-    ) -> Decision {
-        let mut seen: HashSet<String> = played.iter().cloned().collect();
-        self.nearby
-            .retain(|e| e.expires_at > now && seen.insert(e.event.id.clone()));
-        self.world
-            .retain(|e| e.expires_at > now && seen.insert(e.event.id.clone()));
-        if self.nearby.is_empty() && self.world.is_empty() {
+    ) -> Decision<'a> {
+        let mut seen: HashSet<&str> = played.iter().map(String::as_str).collect();
+        let mut eligible = |candidate: &&'a Candidate| {
+            candidate.expires_at > now && seen.insert(candidate.event.id.as_str())
+        };
+        let mut candidates: Vec<_> = self.nearby.iter().filter(&mut eligible).collect();
+        let nearby_count = candidates.len();
+        candidates.extend(self.world.iter().filter(eligible));
+        if candidates.is_empty() {
             return Decision::Empty;
         }
         if random() * 100. < f64::from(policy.drop_percent) {
             return Decision::Quiet;
         }
-        let pool = if self.world.is_empty()
-            || (!self.nearby.is_empty() && random() * 100. < f64::from(policy.nearby_percent))
+        let (nearby, world) = candidates.split_at(nearby_count);
+        let pool = if world.is_empty()
+            || (!nearby.is_empty() && random() * 100. < f64::from(policy.nearby_percent))
         {
-            &mut self.nearby
+            nearby
         } else {
-            &mut self.world
+            world
         };
         let index = (random() * pool.len() as f64) as usize;
-        Decision::Play(pool.swap_remove(index).event)
+        Decision::Play(&pool[index].event)
     }
 }
 
@@ -117,7 +120,7 @@ pub async fn poll(
         }
     }
     let mut response = match pools.choose(clock(), played, &policy, Math::random) {
-        Decision::Play(event) => Response::from_json(&event)?,
+        Decision::Play(event) => Response::from_json(event)?,
         Decision::Empty if failure.is_some() => {
             let mut unavailable = Response::error("Event source unavailable", 503)?;
             if let Some(value) = failure.and_then(|e| e.retry_after) {
@@ -152,7 +155,7 @@ mod tests {
 
     #[test]
     fn chooses_scope_after_filtering_and_drops_only_once() {
-        let pools = || Pools {
+        let pools = Pools {
             nearby: vec![example("near")],
             world: vec![example("near"), example("a"), example("b")],
         };
@@ -163,7 +166,7 @@ mod tests {
         };
         let select = |roll, played: &[String]| {
             let mut rolls = [0.9, roll, 0.0].into_iter();
-            pools().choose(now, played, &policy, || rolls.next().unwrap())
+            pools.choose(now, played, &policy, || rolls.next().unwrap())
         };
         assert!(matches!(select(0.69, &[]), Decision::Play(e) if e.id == "near"));
         assert!(matches!(select(0.70, &[]), Decision::Play(e) if e.id == "a"));
@@ -173,11 +176,11 @@ mod tests {
         );
         let mut one = Some(0.79);
         assert!(matches!(
-            pools().choose(now, &[], &policy, || one.take().unwrap()),
+            pools.choose(now, &[], &policy, || one.take().unwrap()),
             Decision::Quiet
         ));
         assert!(matches!(
-            pools().choose(
+            pools.choose(
                 now + TimeDelta::minutes(15),
                 &[],
                 &policy,
