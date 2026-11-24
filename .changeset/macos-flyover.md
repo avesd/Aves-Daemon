@@ -2,4 +2,4 @@
 apps/macos: minor
 ---
 
-Preview aircraft flyovers from the menu bar and see the client version in Preferences and About.
+Try a sample flyover at the selected duration in Display settings and see the client version in About.

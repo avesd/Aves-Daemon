@@ -1,6 +1,6 @@
 # Aves Daemon
 
-A quiet, playful desktop tool. The macOS prototype previews aircraft flyovers, rain showers, sunrises, bridge lifts, turning tides, and last trains at the screen edge and keeps keyboard focus in the active app.
+A quiet, playful desktop tool. The macOS prototype shows aircraft flyovers, rain showers, sunrises, bridge lifts, turning tides, and last trains at the screen edge and keeps keyboard focus in the active app.
 
 On macOS, scripts can also prepare events or display a personal note through the optional [local Murmur server](apps/macos/README.md#local-server).
 
@@ -22,7 +22,7 @@ Native clients own their windows and input. The Rust core handles playback and d
 
 ## Event data and playback
 
-The six [sample events](crates/avesd-events/fixtures/) power the desktop previews.
+The macOS display preview uses the flyover from the six [sample events](crates/avesd-events/fixtures/).
 
 The [overlay core](crates/avesd-core/src/overlay/) creates summary content and a seeded playback instance from one event. Each [effect](crates/avesd-core/src/overlay/effects/) emits ordered vector commands for the icon and the surrounding scenery. The playback clock controls field visibility, hover expansion, dismissal, and Reduce Motion.
 

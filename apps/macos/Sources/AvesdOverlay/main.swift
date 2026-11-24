@@ -59,13 +59,6 @@ final class OverlayApp: NSObject, NSApplicationDelegate {
         status.button?.toolTip = "Aves Daemon"
         status.button?.setAccessibilityLabel("Aves Daemon")
         let menu = NSMenu()
-        menu.addItem(withTitle: "Preview Flyover", action: #selector(preview), keyEquivalent: "").target = self
-        menu.addItem(withTitle: "Preview Rain", action: #selector(previewRain), keyEquivalent: "").target = self
-        for event in PreviewKind.worldEvents {
-            let item = menu.addItem(withTitle: "Preview " + event.rawValue, action: #selector(previewWorld(_:)), keyEquivalent: "")
-            item.representedObject = event.rawValue
-            item.target = self
-        }
         let locationItem = menu.addItem(withTitle: "Use My Location for Nearby Flights",
                                         action: #selector(useMyLocation), keyEquivalent: "")
         locationItem.target = self
@@ -133,7 +126,7 @@ final class OverlayApp: NSObject, NSApplicationDelegate {
         if settingsController == nil {
             let settings = SettingsView(region: region, preferences: preferences, polling: eventPolling, localServer: localServer,
                                         updates: updates, cache: cache,
-                                        preview: { [weak self] event in self?.present(event) },
+                                        preview: { [weak self] in _ = self?.showOverlay(.preview) },
                                         changePrefetch: { [weak self] enabled in self?.setPrefetch(enabled) },
                                         clearCache: { [weak self] in try await self?.clearLogos() }, navigation: navigation)
             let window = NSWindow(contentViewController: NSHostingController(rootView: settings))
@@ -176,18 +169,6 @@ final class OverlayApp: NSObject, NSApplicationDelegate {
         logoLookup?.cancel()
         didWarmCache = false
         try await cache?.clear()
-    }
-
-    @objc private func preview() { present(.flyover) }
-    @objc private func previewRain() { present(.rain) }
-
-    @objc private func previewWorld(_ item: NSMenuItem) {
-        guard let name = item.representedObject as? String, let event = PreviewKind(rawValue: name) else { return }
-        present(event)
-    }
-
-    private func present(_ event: PreviewKind) {
-        _ = showOverlay(.preview(event))
     }
 
     private func showOverlay(_ input: OverlaySession.Input) -> Bool {

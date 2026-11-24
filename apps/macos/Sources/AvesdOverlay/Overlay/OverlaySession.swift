@@ -1,24 +1,6 @@
 import CAvesdCore
 import SwiftUI
 
-enum PreviewKind: String, CaseIterable {
-    case flyover = "Flyover", rain = "Rain", sunrise = "Sunrise", bridge = "Bridge Lift"
-    case tide = "Turning Tide", lastTrain = "Last Train"
-
-    static let worldEvents: [Self] = [.sunrise, .bridge, .tide, .lastTrain]
-
-    var code: Int {
-        switch self {
-        case .flyover: AVESD_PREVIEW_FLYOVER
-        case .rain: AVESD_PREVIEW_RAIN
-        case .sunrise: AVESD_PREVIEW_SUNRISE
-        case .bridge: AVESD_PREVIEW_BRIDGE_LIFT
-        case .tide: AVESD_PREVIEW_TURNING_TIDE
-        case .lastTrain: AVESD_PREVIEW_LAST_TRAIN
-        }
-    }
-}
-
 enum OverlayLayout {
     static let panelSize = CGSize(width: 368, height: 238)
     static let origin = CGPoint(x: 43, y: 10)
@@ -82,7 +64,7 @@ private final class PlaybackHandle {
 
 @MainActor
 final class OverlaySession: ObservableObject {
-    enum Input { case preview(PreviewKind), event(Data) }
+    enum Input { case preview, event(Data) }
     private var handle: PlaybackHandle?
     @Published private(set) var frame = OverlayFrame()
     @Published private(set) var logo: NSImage?
@@ -96,7 +78,7 @@ final class OverlaySession: ObservableObject {
                                           anchor_x: OverlayLayout.markCenter.x, reduced: reduced)
         let pointer: OpaquePointer?
         switch input {
-        case .preview(let kind): pointer = avesd_overlay_preview(UInt32(kind.code), options)
+        case .preview: pointer = avesd_overlay_preview(UInt32(AVESD_PREVIEW_FLYOVER), options)
         case .event(let data):
             pointer = data.withUnsafeBytes {
                 avesd_overlay_create($0.bindMemory(to: UInt8.self).baseAddress, $0.count, options)

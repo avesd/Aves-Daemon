@@ -7,8 +7,8 @@ should be enough to recognize what happened. Curiosity can do the rest.
 ## Give each event one recognizable gesture
 
 Choose a small visual anchor whose movement belongs to the event. In a flyover,
-the plane crosses the screen edge and reveals the route in its wake. In the rain
-preview, the first drop lands just below the icon. A ripple spreads from that
+the plane crosses the screen edge and reveals the route in its wake. In a rain
+shower, the first drop lands just below the icon. A ripple spreads from that
 point as the city and rain message appear. Each gesture gives
 the eye a place to start and leads it naturally to the summary.
 
@@ -22,7 +22,7 @@ place. When details open below the summary, the line they were reading stays put
 
 ## Give variation a cause and a boundary
 
-In the rain preview, the first drop has a dependable landing point. Later drops
+In a rain shower, the first drop has a dependable landing point. Later drops
 vary in timing and position, and each ripple begins where its own drop lands.
 Leave visible space between the widest ripple and the icon. This gives each
 shower its own rhythm while the words and the area that responds to the pointer
@@ -40,4 +40,4 @@ When reviewing a new event, try it while reading something else. Can you
 recognize it out of the corner of your eye? If you lean in, is there one more
 thing worth learning? If you keep reading, can the event pass on its own?
 
-For preview controls and platform-specific behavior, see the [macOS client guide](../apps/macos/README.md).
+For the display preview and platform-specific behavior, see the [macOS client guide](../apps/macos/README.md).

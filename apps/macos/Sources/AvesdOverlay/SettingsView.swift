@@ -1,7 +1,7 @@
 import SwiftUI
 
 enum SettingsPage: String, CaseIterable, Identifiable {
-    case display = "Display & previews"
+    case display = "Display"
     case sources = "Data sources"
     case polling = "Rhythm"
     case maintenance = "Maintenance"
@@ -55,7 +55,7 @@ struct SettingsView: View {
     let localServer: LocalMurmurServer
     let updates: SoftwareUpdates
     let cache: AirlineLogoCache?
-    let preview: (PreviewKind) -> Void
+    let preview: () -> Void
     let changePrefetch: (Bool) -> Void
     let clearCache: () async throws -> Void
 
@@ -146,24 +146,14 @@ struct SettingsView: View {
     }
 
     private var displaySettings: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            SettingsRow(label: "Display duration") {
-                Picker("Display duration", selection: $preferences.displaySeconds) {
-                    ForEach(DaemonPreferences.durations, id: \.self) { seconds in
-                        Text("\(seconds) s").tag(seconds)
-                    }
-                }
-                .labelsHidden().pickerStyle(.segmented).fixedSize()
-            }
-            Text("Event previews").font(.headline)
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3), spacing: 8) {
-                ForEach(PreviewKind.allCases, id: \.self) { event in
-                    Button { preview(event) } label: {
-                        Text(event.rawValue).frame(maxWidth: .infinity)
-                    }
-                    .accessibilityLabel("Preview \(event.rawValue)")
+        SettingsRow(label: "Display duration") {
+            Picker("Display duration", selection: $preferences.displaySeconds) {
+                ForEach(DaemonPreferences.durations, id: \.self) { seconds in
+                    Text("\(seconds) s").tag(seconds)
                 }
             }
+            .labelsHidden().pickerStyle(.segmented).fixedSize()
+            Button("Preview Once", action: preview)
         }
     }
 
