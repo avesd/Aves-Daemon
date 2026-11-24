@@ -6,7 +6,7 @@
 - Artifact language: English, following the repository's current files.
 - User communication language: Follow the user.
 - Applicable instructions: Read any applicable `AGENTS.md` and the owning README.
-- Validation command: Run `make validate` at the repository root for the Rust workspace and macOS release tools. For macOS changes, run `make build-macos` and check the affected interactions described in the macOS README.
+- Validation command: Run `make validate` at the repository root. It checks the Rust/C drawing ABI and, on macOS, builds and runs the multi-source polling and authenticated loopback playback tests. For changes to a macOS interaction, build the app with `make build-macos` and check that interaction as described in the macOS README.
 
 ## Documentation and terminology
 

@@ -27,13 +27,14 @@ The macOS display preview uses the flyover from the six [sample events](crates/a
 The [overlay core](crates/avesd-core/src/overlay/) creates summary content and a seeded playback instance from one event. Each [effect](crates/avesd-core/src/overlay/effects/) emits ordered vector commands for the icon and the surrounding scenery. The playback clock controls field visibility, hover expansion, dismissal, and Reduce Motion.
 
 The native renderer reads each frame through the [C header](crates/avesd-ffi/include/avesd.h).
-The [keyframe fixtures](crates/avesd-core/tests/fixtures/overlay/) cover all six previews.
 
 ## Development
 
 Use the Node version in `.nvmrc` and the pnpm version in `package.json`. Run
 `pnpm install --frozen-lockfile` at the repository root. Run `make validate`
-for the Rust workspace and the macOS release tests.
+to check that Rust and the C header agree on drawing commands and colors.
+On macOS the same command builds the native test dependencies and checks
+multi-source polling and authenticated playback through the local server.
 
 Run `make` to list the available targets. Build the [macOS overlay](apps/macos/README.md)
 with `make build-macos` or launch it with `make run-macos`.

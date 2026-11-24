@@ -95,4 +95,4 @@ With preloading enabled, the first preview warms the cache for United, Delta, an
 
 SVGs live under the user caches directory in `<bundle-id>/airline-logos/`. The standalone Swift executable uses `ai.avesd.daemon` as its identifier when it has no bundle ID. Cached images older than 30 days are refreshed in the background. The cache evicts the oldest SVGs above 4 MiB. When a logo is unavailable at reveal time, the airline code stays in place for the entire pass.
 
-Run `swift test --package-path apps/macos` from the repository root after `make build-macos` to check polling and settings migration.
+Run `make validate` from the repository root to check the drawing ABI, multi-source polling, and authenticated loopback playback, including duplicate suppression across restarts.

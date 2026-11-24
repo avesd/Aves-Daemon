@@ -10,6 +10,3 @@ h3o = { version = "0.9", default-features = false }
 avesd-events = { path = "../avesd-events" }
 chrono-tz = "0.10"
 serde = { version = "1", features = ["derive"] }
-
-[dev-dependencies]
-serde_json = "1"

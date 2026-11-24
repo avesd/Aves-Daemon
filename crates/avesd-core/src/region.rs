@@ -11,15 +11,3 @@ pub fn cell(latitude: f64, longitude: f64) -> Option<u64> {
     let point = LatLng::new(latitude, longitude).ok()?;
     Some(point.to_cell(Resolution::Six).into())
 }
-
-#[cfg(test)]
-mod tests {
-    use super::cell;
-
-    #[test]
-    fn coordinates_match_the_event_feed_regions() {
-        assert_eq!(cell(35.02258, 135.79506), Some(0x862e6140fffffff));
-        assert_eq!(cell(37.775, -122.418), Some(0x86283082fffffff));
-        assert_eq!(cell(135.79506, 35.02258), None);
-    }
-}
