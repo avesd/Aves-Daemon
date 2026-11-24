@@ -114,13 +114,12 @@ final class OverlayApp: NSObject, NSApplicationDelegate {
 
     @objc private func showSettings() {
         if settingsController == nil {
-            let settings = SettingsView(region: region, preferences: preferences, polling: eventPolling, updates: updates, cache: cache, previewFlight: { [weak self] in self?.preview() },
-                                        previewRain: { [weak self] in self?.previewRain() },
-                                        previewWorld: { [weak self] event in self?.present(event) },
+            let settings = SettingsView(region: region, preferences: preferences, polling: eventPolling, updates: updates, cache: cache,
+                                        preview: { [weak self] event in self?.present(event) },
                                         changePrefetch: { [weak self] enabled in self?.setPrefetch(enabled) },
                                         clearCache: { [weak self] in try await self?.clearLogos() }, navigation: navigation)
             let window = NSWindow(contentViewController: NSHostingController(rootView: settings))
-            window.title = "Aves Daemon Preferences"
+            window.title = "Aves Daemon Settings"
             window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
             window.setContentSize(NSSize(width: 780, height: 530))
             window.isReleasedWhenClosed = false

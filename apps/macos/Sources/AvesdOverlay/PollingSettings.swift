@@ -12,30 +12,31 @@ struct PollingSettings: View {
     }
 
     var body: some View {
-        Form {
-            Section("Request schedule") {
-                minutes("Base interval", value: binding(\.base))
+        VStack(alignment: .leading, spacing: 0) {
+            minutes("Base interval", value: binding(\.base))
+            SettingsRow(label: "Extend interval after playback") {
                 Toggle("Extend interval after playback", isOn: binding(\.increasesAfterPlayback))
-                if preferences.polling.increasesAfterPlayback {
-                    minutes("Increase by", value: binding(\.step))
-                    minutes("Maximum interval", value: binding(\.maximum),
-                            range: preferences.polling.base...PollingPolicy.minutes.upperBound)
-                    Text("A round without playback resets the interval to its base value.")
-                        .font(.callout).foregroundStyle(.secondary)
-                }
+                    .labelsHidden().toggleStyle(.switch)
+            }
+            if preferences.polling.increasesAfterPlayback {
+                minutes("Increase by", value: binding(\.step))
+                minutes("Maximum interval", value: binding(\.maximum),
+                        range: preferences.polling.base...PollingPolicy.minutes.upperBound)
+                Text("A round without playback resets the interval to its base value.")
+                    .font(.callout).foregroundStyle(.secondary)
             }
         }
-        .formStyle(.grouped)
     }
 
     private func minutes(_ label: String, value: Binding<Int>,
                          range: ClosedRange<Int> = PollingPolicy.minutes) -> some View {
-        LabeledContent(label) {
-            TextField(label, value: value, format: .number)
-                .labelsHidden().multilineTextAlignment(.trailing).frame(width: 56)
-            Text("min").foregroundStyle(.secondary)
-            Stepper(label, value: value, in: range).labelsHidden()
+        SettingsRow(label: label) {
+            HStack(spacing: 6) {
+                TextField(label, value: value, format: .number)
+                    .labelsHidden().multilineTextAlignment(.trailing).frame(width: 56)
+                Text("min").foregroundStyle(.secondary)
+                Stepper(label, value: value, in: range).labelsHidden()
+            }
         }
     }
 }
-

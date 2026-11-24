@@ -6,12 +6,17 @@ struct RegionSettings: View {
     @State private var choosing = false
 
     var body: some View {
-        Section("Nearby flights") {
-            LabeledContent("Area", value: region.selection.label)
-            HStack {
-                Button(region.locating ? "Locating…" : "Use My Location") { region.useMyLocation() }
-                    .disabled(region.locating)
-                Button("Choose Place…") { choosing = true }
+        VStack(alignment: .leading, spacing: 8) {
+            SettingsRow(label: "Nearby flights area") {
+                Menu(region.locating ? "Locating…" : region.selection.label) {
+                    Button("Use My Location") { region.useMyLocation() }
+                        .disabled(region.locating)
+                    Button("Choose Place…") { choosing = true }
+                    Button("Use Kyoto (Default)") { region.select(.kyoto) }
+                }
+                .fixedSize()
+                .accessibilityLabel("Nearby flights area")
+                .accessibilityValue(region.selection.label)
             }
             if let message = region.message {
                 Text(message).font(.callout).foregroundStyle(.secondary)

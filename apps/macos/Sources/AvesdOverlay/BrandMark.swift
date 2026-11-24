@@ -92,7 +92,7 @@ private struct FooterBird: Shape {
     }
 }
 
-struct BrandFooter: View {
+struct SidebarBrand: View {
     let showAbout: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -108,23 +108,15 @@ struct BrandFooter: View {
 
     var body: some View {
         Button(action: showAbout) {
-            HStack(alignment: .bottom) {
-                HStack(spacing: 5) {
-                    bird.frame(width: 23, height: 23)
-                    wordmark
-                }
-                Spacer(minLength: 8)
-                Text(verbatim: AboutView.version)
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(.secondary)
-                    .opacity(active ? 1 : 0)
+            HStack(spacing: 7) {
+                bird.frame(width: 23, height: 23)
+                    .foregroundStyle(.tint)
+                wordmark
             }
-            .foregroundStyle(active ? Color.primary : Color.secondary)
-            .padding(.horizontal, 20)
-            .padding(.top, 3)
-            .padding(.bottom, 14)
+            .padding(.vertical, 3)
             .contentShape(Rectangle())
         }
+        .help("About Aves Daemon · \(AboutView.version)")
         .buttonStyle(.plain)
         .focused($focused)
         .accessibilityLabel("About Aves Daemon")
