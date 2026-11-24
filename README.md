@@ -66,3 +66,5 @@ key with the publisher and supply the same public configuration on subsequent
 releases. Sign and notarize the application, archive it preserving framework
 symlinks, then use Sparkle's `generate_appcast` with the matching private key.
 Upload the archive before the feed. See the [client update experience](apps/macos/README.md#software-updates).
+
+For the Apple Silicon GitHub release, follow the [one-time signing setup and publishing instructions](docs/macos-release.md).
