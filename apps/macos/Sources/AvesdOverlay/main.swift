@@ -1,3 +1,4 @@
+import Combine
 import SwiftUI
 
 final class OverlayPanel: NSPanel {
@@ -23,6 +24,10 @@ final class OverlayPanel: NSPanel {
 final class OverlayApp: NSObject, NSApplicationDelegate {
     private let state = OverlaySession()
     private let region = EventRegion()
+    private let preferences = DaemonPreferences()
+    private let eventPolling = EventPolling()
+    private let navigation = SettingsNavigation()
+    private var scheduleSubscription: AnyCancellable?
     private let panel = OverlayPanel(size: OverlayLayout.panelSize)
     private lazy var host = NSHostingView(rootView: OverlayView(state: state))
     private let cache = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first.map {
@@ -38,7 +43,6 @@ final class OverlayApp: NSObject, NSApplicationDelegate {
     private var settingsController: NSWindowController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        OverlayPreferences.register()
         host.sizingOptions = []
         panel.contentView = host
         panel.ignoresMouseEvents = true
@@ -54,29 +58,44 @@ final class OverlayApp: NSObject, NSApplicationDelegate {
             item.representedObject = event.rawValue
             item.target = self
         }
-        if !region.hasCustomFeed {
-            menu.addItem(withTitle: "Use My Location for Nearby Flights",
-                         action: #selector(useMyLocation), keyEquivalent: "").target = self
-        }
+        let locationItem = menu.addItem(withTitle: "Use My Location for Nearby Flights",
+                                        action: #selector(useMyLocation), keyEquivalent: "")
+        locationItem.target = self
         menu.addItem(withTitle: "Settings…", action: #selector(showSettings), keyEquivalent: ",").target = self
         menu.addItem(.separator())
         menu.addItem(withTitle: "Quit Aves Daemon", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         status.menu = menu
         statusItem = status
-        region.refreshIfNeeded()
+        if preferences.usesRegion { region.refreshIfNeeded() }
         NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(didWake),
             name: NSWorkspace.didWakeNotification, object: nil)
-        polling = Task { [region] in
-            var polling = EventPolling(endpoint: { region.endpoint })
-            await polling.run(beforePoll: { region.refreshIfNeeded() }) { [weak self] in
-                self?.showOverlay(.event($0)) ?? false
+        var previousSources = preferences.sources
+        scheduleSubscription = preferences.$sources.removeDuplicates()
+            .combineLatest(preferences.$polling.removeDuplicates(), region.$selection.map(\.cell).removeDuplicates())
+            .sink { [weak self] sources, _, _ in
+                guard let self else { return }
+                locationItem.isHidden = !sources.contains { $0.enabled && $0.mode == .regional }
+                let changed = previousSources.filter { old in
+                    !sources.contains { $0.id == old.id && $0.address == old.address && $0.mode == old.mode }
+                }
+                eventPolling.clearStatus(for: Set(changed.map(\.id)))
+                previousSources = sources
+                polling?.cancel()
+                polling = Task { [weak self] in
+                    guard let self else { return }
+                    await eventPolling.run(preferences: preferences, region: region) { [weak self] in
+                        self?.showOverlay(.event($0)) ?? false
+                    }
+                }
             }
-        }
     }
 
-    @objc private func didWake() { region.refreshIfNeeded(afterWake: true) }
+    @objc private func didWake() {
+        if preferences.usesRegion { region.refreshIfNeeded(afterWake: true) }
+    }
 
     @objc private func useMyLocation() {
+        navigation.page = .sources
         showSettings()
         region.useMyLocation()
     }
@@ -93,15 +112,15 @@ final class OverlayApp: NSObject, NSApplicationDelegate {
 
     @objc private func showSettings() {
         if settingsController == nil {
-            let settings = SettingsView(region: region, cache: cache, previewFlight: { [weak self] in self?.preview() },
+            let settings = SettingsView(region: region, preferences: preferences, polling: eventPolling, cache: cache, previewFlight: { [weak self] in self?.preview() },
                                         previewRain: { [weak self] in self?.previewRain() },
                                         previewWorld: { [weak self] event in self?.present(event) },
                                         changePrefetch: { [weak self] enabled in self?.setPrefetch(enabled) },
-                                        clearCache: { [weak self] in try await self?.clearLogos() })
+                                        clearCache: { [weak self] in try await self?.clearLogos() }, navigation: navigation)
             let window = NSWindow(contentViewController: NSHostingController(rootView: settings))
             window.title = "Aves Daemon Preferences"
-            window.titleVisibility = .hidden
-            window.styleMask = [.titled, .closable]
+            window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
+            window.setContentSize(NSSize(width: 780, height: 530))
             window.isReleasedWhenClosed = false
             window.standardWindowButton(.closeButton)?.keyEquivalent = "w"
             window.standardWindowButton(.closeButton)?.keyEquivalentModifierMask = .command
@@ -123,7 +142,7 @@ final class OverlayApp: NSObject, NSApplicationDelegate {
     }
 
     private func warmLogos() {
-        guard let cache, !didWarmCache, UserDefaults.standard.bool(forKey: OverlayPreferences.prefetchKey) else { return }
+        guard let cache, !didWarmCache, preferences.preloadLogos else { return }
         didWarmCache = true
         prefetchTask = Task(priority: .utility) {
             for mark in AirlineMark.common {
@@ -155,7 +174,7 @@ final class OverlayApp: NSObject, NSApplicationDelegate {
     private func showOverlay(_ input: OverlaySession.Input) -> Bool {
         guard let screen = NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) }) ?? NSScreen.main else { return false }
         let reduced = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
-        guard state.reset(input, reduced: reduced, duration: OverlayPreferences.duration) else { return false }
+        guard state.reset(input, reduced: reduced, duration: TimeInterval(preferences.displaySeconds)) else { return false }
         playback?.cancel()
         logoLookup?.cancel()
         let frame = screen.visibleFrame

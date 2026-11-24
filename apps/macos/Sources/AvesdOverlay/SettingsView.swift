@@ -1,26 +1,31 @@
 import SwiftUI
 
-enum OverlayPreferences {
-    static let durationKey = "flyoverDuration"
-    static let prefetchKey = "prefetchCommonAirlines"
-    static let durations = [3, 5, 8]
-    static let defaultDuration = 5
+enum SettingsPage: String, CaseIterable, Identifiable {
+    case display = "Display & previews"
+    case sources = "Data sources"
+    case polling = "Rhythm"
+    case maintenance = "Maintenance"
 
-    static func register() {
-        UserDefaults.standard.register(defaults: [
-            durationKey: defaultDuration,
-            prefetchKey: true,
-        ])
+    var id: Self { self }
+    var icon: String {
+        switch self {
+        case .display: "display"
+        case .sources: "antenna.radiowaves.left.and.right"
+        case .polling: "clock"
+        case .maintenance: "wrench.and.screwdriver"
+        }
     }
+}
 
-    static var duration: TimeInterval {
-        let seconds = UserDefaults.standard.integer(forKey: durationKey)
-        return TimeInterval(durations.contains(seconds) ? seconds : defaultDuration)
-    }
+@MainActor
+final class SettingsNavigation: ObservableObject {
+    @Published var page: SettingsPage? = .display
 }
 
 struct SettingsView: View {
     @ObservedObject var region: EventRegion
+    @ObservedObject var preferences: DaemonPreferences
+    @ObservedObject var polling: EventPolling
     let cache: AirlineLogoCache?
     let previewFlight: () -> Void
     let previewRain: () -> Void
@@ -30,8 +35,7 @@ struct SettingsView: View {
 
     var brandPresentation = 0
 
-    @AppStorage(OverlayPreferences.durationKey) private var duration = OverlayPreferences.defaultDuration
-    @AppStorage(OverlayPreferences.prefetchKey) private var prefetch = true
+    @ObservedObject var navigation: SettingsNavigation
     @State private var statistics: LogoCacheStatistics?
     @State private var revision = 0
     @State private var showingAbout = false
@@ -39,27 +43,37 @@ struct SettingsView: View {
     @State private var errorMessage: String?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text("Preferences")
-                .font(.title.bold())
-                .accessibilityAddTraits(.isHeader)
-                .padding(.leading, 20)
-                .padding(.top, 16)
-            settingsForm
-            BrandFooter { showingAbout = true }
-                .id(brandPresentation)
+        NavigationSplitView {
+            List(SettingsPage.allCases, selection: $navigation.page) { item in
+                Label(item.rawValue, systemImage: item.icon).tag(item)
+            }
+            .navigationSplitViewColumnWidth(min: 160, ideal: 185, max: 235)
+        } detail: {
+            VStack(alignment: .leading, spacing: 0) {
+                Text((navigation.page ?? .display).rawValue)
+                    .font(.title.bold())
+                    .accessibilityAddTraits(.isHeader)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 16)
+                switch navigation.page ?? .display {
+                case .display: displaySettings
+                case .sources: SourceSettings(preferences: preferences, polling: polling, region: region)
+                case .polling: PollingSettings(preferences: preferences)
+                case .maintenance: maintenanceSettings
+                }
+                BrandFooter { showingAbout = true }
+                    .id(brandPresentation)
+            }
         }
-        .frame(width: 420)
-        .fixedSize(horizontal: false, vertical: true)
+        .frame(minWidth: 640, minHeight: 420)
         .sheet(isPresented: $showingAbout) { AboutView() }
     }
 
-    private var settingsForm: some View {
+    private var displaySettings: some View {
         Form {
-            RegionSettings(region: region)
             Section("Screen-edge previews") {
-                Picker("Display duration", selection: $duration) {
-                    ForEach(OverlayPreferences.durations, id: \.self) { seconds in
+                Picker("Display duration", selection: $preferences.displaySeconds) {
+                    ForEach(DaemonPreferences.durations, id: \.self) { seconds in
                         Text("\(seconds) s").tag(seconds)
                     }
                 }
@@ -84,9 +98,15 @@ struct SettingsView: View {
                     .accessibilityLabel("Preview world event")
                 }
             }
+        }
+        .formStyle(.grouped)
+    }
+
+    private var maintenanceSettings: some View {
+        Form {
             Section("Airline logos") {
-                Toggle("Preload common airlines", isOn: Binding(get: { prefetch }, set: { enabled in
-                    prefetch = enabled
+                Toggle("Preload common airlines", isOn: Binding(get: { preferences.preloadLogos }, set: { enabled in
+                    preferences.preloadLogos = enabled
                     changePrefetch(enabled)
                 }))
                 LabeledContent("Local cache") {

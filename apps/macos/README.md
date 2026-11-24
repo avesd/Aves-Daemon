@@ -23,7 +23,7 @@ The click-through AppKit panel hosts a SwiftUI view. The summary stays anchored 
 
 ## Live playback
 
-The open-source app connects automatically to Murmur, a free, closed-source event service. The feed includes events from the selected area and around the world. Kyoto is the default. Choose **Use My Location for Nearby Flights** from the menu bar to request a one-time location fix. The app converts it to a regional cell on the Mac and sends only that cell to Murmur. It refreshes the area after wake or when the last fix is 24 hours old. To follow another place without location access, open **Settings → Nearby flights → Choose Place…**, search by city and country, and select the result. Place searches use Apple’s geocoder. Select **Use Kyoto (Default)** to reset the area. The app remembers which events it has shown for three hours across restarts. Manual previews are available from the menu bar.
+The open-source app connects automatically to Murmur, a free, closed-source event service. The feed includes events from the selected area and around the world. Kyoto is the default. Choose **Use My Location for Nearby Flights** from the menu bar to request a one-time location fix. The app converts it to a regional cell on the Mac and sends only that cell to Murmur. It refreshes the area after wake or when the last fix is 24 hours old. To follow another place without location access, open **Settings → Data sources → Nearby flights → Choose Place…**, search by city and country, and select the result. Place searches use Apple’s geocoder. Select **Use Kyoto (Default)** to reset the area. The app remembers which events it has shown for three hours across restarts. Manual previews are available from the menu bar.
 
 ## Typography
 
@@ -33,6 +33,15 @@ The Settings wordmark uses the system's Futura Medium. The flyover uses the macO
 
 Choose **Settings…** from the menu bar, or reopen the running app from Finder. The same settings window comes to the front. Closing it leaves the menu bar app running. Choose **Quit Aves Daemon** to exit.
 
+Use the sidebar to switch between four pages. Changes take effect while the app is running.
+
+- **Display & previews** controls how long events stay on screen and lets you try all six previews.
+- **Data sources** lists each source and its latest request result. Add a regional API base URL to use the selected area, or enter a complete fixed event URL. Edit a source to rename or remove it. Turn off every source to pause automatic playback. On upgrade, an existing custom feed becomes the sole enabled fixed source. New installations start with the regional Murmur service.
+- **Rhythm** controls the base interval and optional increase after playback. Defaults are 5 minutes initially, 5 minutes per increase, and a 15-minute maximum. A round without playback restores the base interval. Fixed mode always uses the base interval. Changes to the schedule or source list restart the wait.
+- **Maintenance** contains the airline logo cache.
+
+Each round requests eligible sources concurrently. At most one event plays. When several sources offer events, selection starts after the last source that played. A source's retry delay applies only to that source. Playback IDs are remembered for three hours across launches. A source receives only IDs it has supplied.
+
 Select a display duration of 3, 5, or 8 seconds and click **Preview** in the **Flight preview** or **Rain preview** row to try it. The **World event preview** menu plays any of the four world events. The Preferences footer pairs the bird with the Aves Daemon wordmark. The bird traces in when the window opens. Hovering the footer or focusing it with the keyboard slides the D left and fades it into a lowercase d while the suffix stays in place. The bird nods and morphs to the standard mark. The lower-right corner and About sheet show the release version from [version.json](version.json) and the bundle build number. The [client release workflow](../../README.md#macos-client-releases) manages the release version. Activating any part of the footer opens the About sheet, which includes the product website. Leaving restores the product signature. Reduce Motion switches directly between the two states. Settings persist across launches. The **Airline logos** section controls preloading, shows the number and size of cached marks, and can clear those marks. Downloading an individual flight's logo on demand still works with preloading off.
 
 ## Airline marks
@@ -40,3 +49,5 @@ Select a display duration of 3, 5, or 8 seconds and click **Preview** in the **F
 With preloading enabled, the first preview warms the cache for United, Delta, and Lufthansa. The client requests monochrome SVGs from the [Soaring Symbols 0.4 release line](https://github.com/soaring-symbols/soaring-symbols#cdn). Its [brand asset notice](https://github.com/soaring-symbols/soaring-symbols/blob/main/DISCLAIMER.md) describes rights in the individual marks.
 
 SVGs live under the user caches directory in `<bundle-id>/airline-logos/`. The standalone Swift executable uses `ai.avesd.daemon` as its identifier when it has no bundle ID. Cached images older than 30 days are refreshed in the background. The cache evicts the oldest SVGs above 4 MiB. When a logo is unavailable at reveal time, the airline code stays in place for the entire pass.
+
+Run `swift test --package-path apps/macos` from the repository root after `make build-macos` to check polling and settings migration.

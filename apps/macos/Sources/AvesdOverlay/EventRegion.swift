@@ -43,15 +43,9 @@ final class EventRegion: NSObject, ObservableObject, @preconcurrency CLLocationM
         super.init()
     }
 
-    var hasCustomFeed: Bool { defaults.string(forKey: "eventPollingURL") != nil }
-
-    var endpoint: URL? {
-        if let address = defaults.string(forKey: "eventPollingURL") {
-            guard let url = URL(string: address), ["http", "https"].contains(url.scheme), url.host != nil else { return nil }
-            return url
-        }
+    var availableCell: String? {
         if case .device(_, let updated) = selection, locating || Date().timeIntervalSince(updated) >= Self.maxAge { return nil }
-        return URL(string: "https://murmur-api.avesd.ai/v1/regions/\(selection.cell)/event")
+        return selection.cell
     }
 
     static func cell(for coordinate: CLLocationCoordinate2D) -> String? {
@@ -84,7 +78,7 @@ final class EventRegion: NSObject, ObservableObject, @preconcurrency CLLocationM
     }
 
     func useMyLocation() {
-        guard !locating, !hasCustomFeed else { return }
+        guard !locating else { return }
         let manager = locationManager()
         message = nil
         locating = true
@@ -97,7 +91,7 @@ final class EventRegion: NSObject, ObservableObject, @preconcurrency CLLocationM
     }
 
     func refreshIfNeeded(afterWake: Bool = false) {
-        guard case .device(_, let updated) = selection, !hasCustomFeed, !locating else { return }
+        guard case .device(_, let updated) = selection, !locating else { return }
         let manager = locationManager()
         guard manager.authorizationStatus == .authorizedAlways else {
             locationAccessUnavailable()

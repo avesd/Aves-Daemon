@@ -7,18 +7,14 @@ struct RegionSettings: View {
 
     var body: some View {
         Section("Nearby flights") {
-            if region.hasCustomFeed {
-                Text("Using your custom event feed.")
-            } else {
-                LabeledContent("Area", value: region.selection.label)
-                HStack {
-                    Button(region.locating ? "Locating…" : "Use My Location") { region.useMyLocation() }
-                        .disabled(region.locating)
-                    Button("Choose Place…") { choosing = true }
-                }
-                if let message = region.message {
-                    Text(message).font(.callout).foregroundStyle(.secondary)
-                }
+            LabeledContent("Area", value: region.selection.label)
+            HStack {
+                Button(region.locating ? "Locating…" : "Use My Location") { region.useMyLocation() }
+                    .disabled(region.locating)
+                Button("Choose Place…") { choosing = true }
+            }
+            if let message = region.message {
+                Text(message).font(.callout).foregroundStyle(.secondary)
             }
         }
         .sheet(isPresented: $choosing) {

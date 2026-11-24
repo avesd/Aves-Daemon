@@ -19,6 +19,13 @@ let package = Package(
                 .unsafeFlags(["-L", rustLibraryDirectory, "-Xlinker", "-rpath", "-Xlinker", "@loader_path/../Frameworks",
                               "-Xlinker", "-rpath", "-Xlinker", "@loader_path/../../rust/debug"])
             ]
+        ),
+        .testTarget(
+            name: "AvesdOverlayTests",
+            dependencies: ["AvesdOverlay"],
+            linkerSettings: [
+                .unsafeFlags(["-Xlinker", "-rpath", "-Xlinker", rustLibraryDirectory])
+            ]
         )
     ]
 )
