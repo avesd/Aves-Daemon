@@ -1,0 +1,22 @@
+0.1.0:
+  kind: deployment
+  previousVersion: 0.0.0
+  bump: minor
+  intents:
+    - flight-summary
+    - live-playback
+    - local-murmur-server
+    - macos-flyover
+    - macos-software-updates
+    - overlay-utc
+    - rain-preview
+    - world-event-previews
+  digests:
+    flight-summary: 1b649a3d4da39e3b83a81f3c8aa04a365ea682bc437c2031e56ceb431fe3c2f4
+    live-playback: 36a0c4231de57db2c8cf43be1ad935655170a3837d8e366a458657b760452429
+    local-murmur-server: d3f202371aa551cf843a8eae78e7121765ecef4577ad749fd42397b55f483b78
+    macos-flyover: 47c00032de26c82658378d4fadac9cb52eed08a9e7fe2e5a0e98f7cbbc479516
+    macos-software-updates: ba31c0ed0a31bba60f0d8eea216a7636288ba92d7e9305f65157db59bc395d7a
+    overlay-utc: 227761c7ede8a0949d7f485056951f139d7e54d6fc7ec5e6569f1b76ec894edd
+    rain-preview: c2b7b5019d537d1d08a6dd6421f4a42a06f53bd6a29ede205cb7b3f45b91ff84
+    world-event-previews: 2f5dcf2097d6645318773519727c6de9cc02bbf775e4a585a9a2ddcfcd7de20c
