@@ -63,7 +63,7 @@ appcast URL) and `UPDATE_PUBLIC_KEY` (the base64 Ed25519 public key from
 Sparkle's `generate_keys`) when running `make build-macos-release`.
 Omit both for a local build with updating disabled. Keep the signing private
 key with the publisher and supply the same public configuration on subsequent
-releases. Sign and notarize the application, archive it preserving framework
+releases. Apply the configured signing mode, archive the app preserving framework
 symlinks, then use Sparkle's `generate_appcast` with the matching private key.
 Upload the archive before the feed. See the [client update experience](apps/macos/README.md#software-updates).
 

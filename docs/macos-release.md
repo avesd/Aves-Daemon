@@ -32,16 +32,34 @@ gh variable set UPDATE_PUBLIC_KEY -R avesd/Aves-Daemon --env macos-release --bod
 gh variable set UPDATE_FEED_URL -R avesd/Aves-Daemon --env macos-release --body 'https://github.com/avesd/Aves-Daemon/releases/latest/download/appcast.xml'
 ```
 
+### Test releases before Apple Developer enrollment
+
+Configure the Sparkle settings above and set one additional environment variable:
+
+```sh
+gh variable set MACOS_SIGNING_MODE -R avesd/Aves-Daemon --env macos-release --body ad-hoc
+```
+
+In this mode the runner applies an ad-hoc signature to the app bundle and signs
+the final ZIP with Sparkle. These releases follow the same GitHub Latest and
+appcast publication flow. Gatekeeper may block the first launch of a downloaded
+copy because Apple has not verified the developer or notarized the app.
+
+When you enroll, configure the Apple credentials below and change
+`MACOS_SIGNING_MODE` to `developer-id` before the next version bump. Keep the
+same Sparkle key pair so existing installations can verify the new ZIP.
+
 ### Configure Apple signing and notarization
 
 In Keychain Access on the signing Mac, open **My Certificates**, select the **Developer ID Application** identity with its private key, and export it as a password-protected `.p12`. Use Apple's [Developer ID certificate instructions](https://developer.apple.com/help/account/certificates/create-developer-id-certificates/) to obtain an identity if needed. Find your Team ID in your Apple Developer membership. Generate an [app-specific password](https://support.apple.com/en-us/102654) for notarization using the Apple account on that team.
 
-Use **Environment variables** and **Environment secrets** inside `macos-release`. The following table lists all settings including those set by the Sparkle commands above.
+Use **Environment variables** and **Environment secrets** inside `macos-release`. The following table lists the release settings. The Apple credentials are required only in Developer ID mode.
 
 | Type | Name | Value |
 | --- | --- | --- |
 | Variable | `UPDATE_PUBLIC_KEY` | Base64 public key printed by Sparkle |
 | Variable | `UPDATE_FEED_URL` | Stable latest-release appcast URL shown above |
+| Variable | `MACOS_SIGNING_MODE` | `developer-id` (default) or `ad-hoc` for pre-enrollment testing |
 | Variable | `APPLE_TEAM_ID` | Apple Developer Team ID for the certificate and notarization account |
 | Secret | `SPARKLE_PRIVATE_KEY` | Contents of the Sparkle private key export |
 | Secret | `DEVELOPER_ID_P12_BASE64` | Base64 of the complete exported PKCS#12 file |
@@ -62,6 +80,6 @@ gh variable set APPLE_TEAM_ID -R avesd/Aves-Daemon --env macos-release --body 'Y
 ## Publish a version
 
 1. Preview with `make version-dry-run`, then run `make version-packages` and merge the manifest and generated quarterly history into `main`.
-2. Open **Actions → Release macOS**. The workflow validates the version transition, builds the app, signs it with Developer ID, waits for Apple to accept the notarization, and staples the ticket. It verifies the final ZIP signature against the public key embedded in the app.
+2. Open **Actions → Release macOS**. The workflow validates the version transition, builds the app and applies the configured signing mode. In Developer ID mode it also waits for Apple to accept the notarization and staples the ticket. It verifies the final ZIP signature against the public key embedded in the app.
 3. The publish job attaches the ZIP and `appcast.xml` to a draft for `v<version>` targeting the triggering SHA, then publishes it. The current release on `main` becomes Latest. To retry a failed release, use **Re-run failed jobs** on the original run.
 4. For the first rollout, download the ZIP from Releases, extract the app into Applications, and choose **Check for Updates…**. On the following release, verify that the previously installed copy offers the new version and relaunches with its settings preserved.

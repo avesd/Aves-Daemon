@@ -79,8 +79,9 @@ jobs:
           : "${UPDATE_FEED_URL:?Configure UPDATE_FEED_URL in macos-release}"
           : "${UPDATE_PUBLIC_KEY:?Configure UPDATE_PUBLIC_KEY in macos-release}"
           make build-macos-release
-      - name: Sign and notarize the application
+      - name: Apply the configured macOS signing mode
         env:
+          MACOS_SIGNING_MODE: ${{ vars.MACOS_SIGNING_MODE }}
           DEVELOPER_ID_P12_BASE64: ${{ secrets.DEVELOPER_ID_P12_BASE64 }}
           DEVELOPER_ID_P12_PASSWORD: ${{ secrets.DEVELOPER_ID_P12_PASSWORD }}
           APPLE_ID: ${{ secrets.APPLE_ID }}

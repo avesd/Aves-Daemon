@@ -1,5 +1,18 @@
 #!/bin/bash
 set -euo pipefail
+app="apps/macos/.build/distribution/Aves Daemon.app"
+case "${MACOS_SIGNING_MODE:-developer-id}" in
+    ad-hoc)
+        codesign --force --sign - "$app"
+        codesign --verify --deep --strict "$app"
+        exit 0
+        ;;
+    developer-id) ;;
+    *)
+        echo "Expected MACOS_SIGNING_MODE to be developer-id or ad-hoc." >&2
+        exit 1
+        ;;
+esac
 : "${DEVELOPER_ID_P12_BASE64:?}" "${DEVELOPER_ID_P12_PASSWORD:?}" "${APPLE_ID:?}" "${APPLE_TEAM_ID:?}" "${APPLE_APP_PASSWORD:?}"
 
 umask 077
@@ -25,7 +38,6 @@ if [[ ! "$identity" =~ ^[[:xdigit:]]{40}$ ]]; then
     exit 1
 fi
 
-app="apps/macos/.build/distribution/Aves Daemon.app"
 framework="$app/Contents/Frameworks/Sparkle.framework"
 helpers="$framework/Versions/B"
 sign=(codesign --force --options runtime --timestamp --keychain "$keychain" --sign "$identity")
