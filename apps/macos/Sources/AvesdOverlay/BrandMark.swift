@@ -1,15 +1,22 @@
 import SwiftUI
 
 enum MenuBarBrand {
-    static let image: NSImage = {
+    static func image(showsUpdate: Bool) -> NSImage {
         let size = NSSize(width: 20, height: 20)
         let image = NSImage(size: size, flipped: true) { rect in
             guard let context = NSGraphicsContext.current?.cgContext else { return false }
+            if showsUpdate {
+                let dot = CGRect(x: rect.maxX - 5, y: rect.minY, width: 5, height: 5)
+                context.setFillColor(NSColor.black.cgColor)
+                context.fillEllipse(in: dot)
+                context.clip(to: CGRect(x: rect.minX, y: rect.minY, width: rect.width - 6, height: rect.height))
+            }
             context.saveGState()
             defer { context.restoreGState() }
-            let scale = rect.width / BrandGeometry.size
+            let width = showsUpdate ? rect.width - 6 : rect.width
+            let scale = width / BrandGeometry.size
             let center = BrandGeometry.square.contour.boundingRect
-            context.translateBy(x: rect.midX - center.midX * scale, y: rect.midY - center.midY * scale)
+            context.translateBy(x: rect.minX + width / 2 - center.midX * scale, y: rect.midY - center.midY * scale)
             context.scaleBy(x: scale, y: scale)
             context.setFillColor(NSColor.black.cgColor)
             context.addPath(BrandGeometry.square.solid.cgPath)
@@ -18,7 +25,7 @@ enum MenuBarBrand {
         }
         image.isTemplate = true
         return image
-    }()
+    }
 }
 
 private struct BrandNod: AnimatableModifier {

@@ -20,7 +20,7 @@ test("The macOS release consumes pending notes and records the largest bump", (t
     assert.equal(plan.changes[0]?.nextVersion, "0.1.0");
     assert.equal(JSON.parse(readFileSync(manifest, "utf8")).version, "0.0.0");
     applyReleases(plan);
-    assert.equal(JSON.parse(readFileSync(manifest, "utf8")).version, "0.1.0");
+    assert.deepEqual(JSON.parse(readFileSync(manifest, "utf8")), { version: "0.1.0", build: 2 });
     assert.equal(existsSync(first) || existsSync(second), false);
     assert.throws(() => applyReleases(plan));
     const after = planReleases(root);
@@ -29,4 +29,7 @@ test("The macOS release consumes pending notes and records the largest bump", (t
     assert.deepEqual(history!.entries["0.1.0"]!.intents, ["callsign", "previews"]);
     assert.match(history!.changelog, /Add event previews\./);
     assert.match(history!.changelog, /Show each callsign once\./);
+    createChangeset(root, { [target]: "patch" }, "Fix event previews.", "fix-previews");
+    applyReleases(planReleases(root));
+    assert.deepEqual(JSON.parse(readFileSync(manifest, "utf8")), { version: "0.1.1", build: 3 });
 });

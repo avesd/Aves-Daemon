@@ -38,11 +38,24 @@ Use the sidebar to switch between four pages. Changes take effect while the app 
 - **Display & previews** controls how long events stay on screen and lets you try all six previews.
 - **Data sources** lists each source and its latest request result. Add a regional API base URL to use the selected area, or enter a complete fixed event URL. Edit a source to rename or remove it. Turn off every source to pause automatic playback. On upgrade, an existing custom feed becomes the sole enabled fixed source. New installations start with the regional Murmur service.
 - **Rhythm** controls the base interval and optional increase after playback. Defaults are 5 minutes initially, 5 minutes per increase, and a 15-minute maximum. A round without playback restores the base interval. Fixed mode always uses the base interval. Changes to the schedule or source list restart the wait.
-- **Maintenance** contains the airline logo cache.
+- **Maintenance** contains software updates and the airline logo cache.
 
 Each round requests eligible sources concurrently. At most one event plays. When several sources offer events, selection starts after the last source that played. A source's retry delay applies only to that source. Playback IDs are remembered for three hours across launches. A source receives only IDs it has supplied.
 
 Select a display duration of 3, 5, or 8 seconds and click **Preview** in the **Flight preview** or **Rain preview** row to try it. The **World event preview** menu plays any of the four world events. The Preferences footer pairs the bird with the Aves Daemon wordmark. The bird traces in when the window opens. Hovering the footer or focusing it with the keyboard slides the D left and fades it into a lowercase d while the suffix stays in place. The bird nods and morphs to the standard mark. The lower-right corner and About sheet show the release version from [version.json](version.json) and the bundle build number. The [client release workflow](../../README.md#macos-client-releases) manages the release version. Activating any part of the footer opens the About sheet, which includes the product website. Leaving restores the product signature. Reduce Motion switches directly between the two states. Settings persist across launches. The **Airline logos** section controls preloading, shows the number and size of cached marks, and can clear those marks. Downloading an individual flight's logo on demand still works with preloading off.
+
+## Software updates
+
+In an update-enabled build, Sparkle asks for permission to check for updates on
+the second launch. With permission, the app checks approximately daily. A dot
+on the menu bar bird and the **Update Available** menu item announce the new
+version. Choose the item to read the release notes and install and relaunch
+or defer the update. **Check for Updates…** also works with automatic checks off.
+
+**Settings → Maintenance → Software updates** controls automatic checks and optional automatic
+download and installation. With automatic installation enabled, Sparkle can
+install a downloaded update when the app quits. A long-running app may still
+offer to install and relaunch.
 
 ## Airline marks
 

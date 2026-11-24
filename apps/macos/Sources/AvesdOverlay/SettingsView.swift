@@ -26,6 +26,7 @@ struct SettingsView: View {
     @ObservedObject var region: EventRegion
     @ObservedObject var preferences: DaemonPreferences
     @ObservedObject var polling: EventPolling
+    let updates: SoftwareUpdates
     let cache: AirlineLogoCache?
     let previewFlight: () -> Void
     let previewRain: () -> Void
@@ -104,6 +105,13 @@ struct SettingsView: View {
 
     private var maintenanceSettings: some View {
         Form {
+            Section("Software updates") {
+                if let updater = updates.updater {
+                    UpdateSettings(updater: updater)
+                } else {
+                    Text("Software updates are unavailable in this build.").foregroundStyle(.secondary)
+                }
+            }
             Section("Airline logos") {
                 Toggle("Preload common airlines", isOn: Binding(get: { preferences.preloadLogos }, set: { enabled in
                     preferences.preloadLogos = enabled

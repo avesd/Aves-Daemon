@@ -23,6 +23,7 @@ final class OverlayPanel: NSPanel {
 @MainActor
 final class OverlayApp: NSObject, NSApplicationDelegate {
     private let state = OverlaySession()
+    private let updates = SoftwareUpdates()
     private let region = EventRegion()
     private let preferences = DaemonPreferences()
     private let eventPolling = EventPolling()
@@ -47,7 +48,7 @@ final class OverlayApp: NSObject, NSApplicationDelegate {
         panel.contentView = host
         panel.ignoresMouseEvents = true
         let status = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        status.button?.image = MenuBarBrand.image
+        status.button?.image = MenuBarBrand.image(showsUpdate: false)
         status.button?.toolTip = "Aves Daemon"
         status.button?.setAccessibilityLabel("Aves Daemon")
         let menu = NSMenu()
@@ -62,6 +63,7 @@ final class OverlayApp: NSObject, NSApplicationDelegate {
                                         action: #selector(useMyLocation), keyEquivalent: "")
         locationItem.target = self
         menu.addItem(withTitle: "Settings…", action: #selector(showSettings), keyEquivalent: ",").target = self
+        updates.attach(to: menu, button: status.button)
         menu.addItem(.separator())
         menu.addItem(withTitle: "Quit Aves Daemon", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         status.menu = menu
@@ -112,7 +114,7 @@ final class OverlayApp: NSObject, NSApplicationDelegate {
 
     @objc private func showSettings() {
         if settingsController == nil {
-            let settings = SettingsView(region: region, preferences: preferences, polling: eventPolling, cache: cache, previewFlight: { [weak self] in self?.preview() },
+            let settings = SettingsView(region: region, preferences: preferences, polling: eventPolling, updates: updates, cache: cache, previewFlight: { [weak self] in self?.preview() },
                                         previewRain: { [weak self] in self?.previewRain() },
                                         previewWorld: { [weak self] event in self?.present(event) },
                                         changePrefetch: { [weak self] enabled in self?.setPrefetch(enabled) },

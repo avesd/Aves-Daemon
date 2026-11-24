@@ -48,5 +48,21 @@ root, use `make changeset TARGET=apps/macos BUMP=minor SUMMARY="Describe the cli
 or choose the client in the interactive `make changeset` prompt.
 Preview with `make version-dry-run TARGET=apps/macos` and apply with
 `make version-packages TARGET=apps/macos`. The client keeps its quarterly
-changelog and ledger under `apps/macos/.changeset/history/`. The next
-`make build-macos` embeds the manifest version into the application.
+changelog and ledger under `apps/macos/.changeset/history/`. Each applied release increments the manifest's integer `build` once. Both
+build targets embed `version` as `CFBundleShortVersionString` and `build`
+as `CFBundleVersion`. Rebuilding the same manifest reuses both values.
+Prepare a new changeset release for each distinct distributed update.
+
+Run `make build-macos-release` to build the Swift executable and Rust library
+in release mode for the current Mac's architecture. The local release bundle
+is `apps/macos/.build/distribution/Aves Daemon.app`. Developer ID signing
+and notarization are separate distribution steps.
+
+To enable Sparkle in this bundle, set both `UPDATE_FEED_URL` (the stable HTTPS
+appcast URL) and `UPDATE_PUBLIC_KEY` (the base64 Ed25519 public key from
+Sparkle's `generate_keys`) when running `make build-macos-release`.
+Omit both for a local build with updating disabled. Keep the signing private
+key with the publisher and supply the same public configuration on subsequent
+releases. Sign and notarize the application, archive it preserving framework
+symlinks, then use Sparkle's `generate_appcast` with the matching private key.
+Upload the archive before the feed. See the [client update experience](apps/macos/README.md#software-updates).

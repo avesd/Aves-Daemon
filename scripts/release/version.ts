@@ -63,6 +63,13 @@ export const applyVersionBump = (directory: string, kind: VersionManifestKind, b
     }
     const currentVersion = manifest.version;
     const nextVersion = resolveNextVersion(currentVersion, bump);
+    if (kind === "deployment") {
+        const build = "build" in manifest ? manifest.build : 1;
+        if (typeof build !== "number" || build < 1 || !Number.isSafeInteger(build) || !Number.isSafeInteger(build + 1)) {
+            throw new Error("Expected a positive build number with room for the next release");
+        }
+        Object.assign(manifest, { build: build + 1 });
+    }
     manifest.version = nextVersion;
     writeFileSync(filename, `${JSON.stringify(manifest, null, 2)}\n`);
     return {
