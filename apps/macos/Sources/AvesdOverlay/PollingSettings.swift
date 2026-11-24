@@ -22,10 +22,37 @@ struct PollingSettings: View {
                 minutes("Increase by", value: binding(\.step))
                 minutes("Maximum interval", value: binding(\.maximum),
                         range: preferences.polling.base...PollingPolicy.minutes.upperBound)
+            }
+            intervalPreview.padding(.top, 22)
+        }
+    }
+
+    private var intervalPreview: some View {
+        let policy = preferences.polling
+        let second = policy.nextInterval(after: policy.base, played: true)
+        let intervals = [policy.base, second, policy.nextInterval(after: second, played: true)]
+        return VStack(alignment: .leading, spacing: 12) {
+            Text("Interval after consecutive plays").font(.headline)
+            HStack(spacing: 12) {
+                ForEach(intervals.indices, id: \.self) { index in
+                    VStack(alignment: .leading, spacing: 6) {
+                        GeometryReader { geometry in
+                            Capsule().fill(.tint)
+                                .frame(width: max(2, geometry.size.width * CGFloat(intervals[index]) / CGFloat(intervals[2])))
+                        }
+                        .frame(height: 4)
+                        Text("\(intervals[index]) min").monospacedDigit()
+                            .font(.callout).foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: 130, alignment: .leading)
+                }
+            }
+            if policy.increasesAfterPlayback {
                 Text("A round without playback resets the interval to its base value.")
                     .font(.callout).foregroundStyle(.secondary)
             }
         }
+        .accessibilityElement(children: .combine)
     }
 
     private func minutes(_ label: String, value: Binding<Int>,
