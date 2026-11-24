@@ -9,6 +9,8 @@ extern "C" {
 
 // Resolution-six H3 cell for coordinates in degrees, or zero for invalid input.
 uint64_t avesd_region_cell(double latitude, double longitude);
+bool avesd_region_is_valid(uint64_t cell);
+bool avesd_event_is_playable(const uint8_t *data, size_t len);
 
 uint64_t avesd_next_click_count(uint64_t current);
 

@@ -25,6 +25,38 @@ The click-through AppKit panel hosts a SwiftUI view. The summary stays anchored 
 
 The open-source app connects automatically to Murmur, a free, closed-source event service. The feed includes events from the selected area and around the world. Kyoto is the default. Choose **Use My Location for Nearby Flights** from the menu bar to request a one-time location fix. The app converts it to a regional cell on the Mac and sends only that cell to Murmur. It refreshes the area after wake or when the last fix is 24 hours old. To follow another place without location access, open **Settings → Data sources → Nearby flights area → Choose Place…**, search by city and country, and select the result. Place searches use Apple’s geocoder. Select **Use Kyoto (Default)** to reset the area. The app remembers which events it has shown for three hours across restarts. Manual previews are available from the menu bar.
 
+## Local server
+
+Open **Settings → Data sources → Local server** and enable the server to accept requests at `http://127.0.0.1:47831`. On first start, Avesd adds an enabled **Local server** entry to the end of the Murmur sources. Drag a source by its handle or choose **Move up** or **Move down** from its menu. The order controls the client's round-robin selection among sources that have events. Stopping the server skips its entry and preserves its position.
+
+The server and **Allow immediate display (trigger)** both start off. For pull-only use, enable the server and include its source in polling. For trigger-only use, enable immediate display and turn off polling on its source row. The server keeps prepared candidates across app restarts.
+
+**Copy token** copies a random credential stored in the macOS Keychain. Supply it to the calling script as `AVESD_TOKEN`. Write and trigger requests use `Authorization: Bearer <token>`. **Reset token** invalidates the previous credential immediately. Local processes that can reach the port can read candidates without a token.
+
+| Request | Behavior |
+| --- | --- |
+| `PUT /v1/events/{id}` | Prepare or update a candidate. The percent-encoded path ID must match the event ID. Returns `201` for a new candidate and `200` for an update. |
+| `GET /v1/regions/{cell}/event` | Use the official regional polling contract with any canonical resolution-six H3 cell and up to 64 repeated `played` IDs of at most 256 UTF-8 bytes each. Personal events apply in every region. Returns the most recently added eligible candidate (`200`), or `204` when there are none. Each read leaves the candidate available. |
+| `POST /v1/trigger` | Submit an event directly for immediate playback, including while another event is visible. Returns `200` with `status` set to `started` or `already_played`. Trigger uses the same three-hour playback history as polling. The next poll resumes after the last source selected by polling. An in-flight poll yields to the trigger. |
+
+Use any supported event or send a `note` with a required `data.summary` and optional `data.detail` for hover. Each write accepts one JSON body up to 64 KiB with a content length. An optional top-level RFC 3339 `expires_at` sets the deadline. A candidate otherwise expires three hours after its first submission. Updating its content without an expiry preserves its deadline.
+
+To try a particular animation during development, enable immediate display and send its [sample JSON](../../crates/avesd-events/fixtures/) as the body of `POST /v1/trigger`. Use a fresh `id` to replay the same sample within three hours.
+
+```sh
+base=http://127.0.0.1:47831
+event='{"id":"build-42","kind":"note","occurred_at":"2026-11-24T15:42:00Z","data":{"summary":"Build ready","detail":"42 checks passed."}}'
+
+curl --fail-with-body -X PUT "$base/v1/events/build-42" \
+  -H "Authorization: Bearer $AVESD_TOKEN" -H 'Content-Type: application/json' --data-binary "$event"
+curl "$base/v1/regions/862e6140fffffff/event"
+
+curl --fail-with-body "$base/v1/trigger" \
+  -H "Authorization: Bearer $AVESD_TOKEN" -H 'Content-Type: application/json' --data-binary "$event"
+```
+
+An invalid token returns `401`. A valid token with immediate display disabled returns `403`. Invalid event data, mismatched IDs and past expiry dates return `422`. A storage or playback failure returns `503`; a failed playback can be retried with the same ID.
+
 ## Typography
 
 The Settings wordmark uses the system's Futura Medium. The flyover uses the macOS serif face for airline names and the system UI face for details, including their localized Chinese glyphs. Flight codes use IBM Plex Mono Medium, the only bundled font. The app registers it for its own process. The font and its OFL notice come from the [pinned Google Fonts distribution](https://github.com/google/fonts/tree/06bfe0d62a98375cb09c942fa18e68bd32cff057/ofl/ibmplexmono).
@@ -36,7 +68,7 @@ Choose **Settings…** from the menu bar, or reopen the running app from Finder.
 Use the persistent sidebar to switch between four pages. Changes take effect while the app is running.
 
 - **Display & previews** controls how long events stay on screen and lets you try all six previews.
-- **Data sources** lists each source and its latest request result. Add a regional API base URL to use the selected area, or enter a complete fixed event URL. Edit a source to rename or remove it. Turn off every source to pause automatic playback. On upgrade, an existing custom feed becomes the sole enabled fixed source. New installations start with the regional Murmur service.
+- **Data sources** lists each source and its latest request result. Add a regional API base URL to use the selected area, or enter a complete fixed event URL. Edit a source to rename or remove it. Turn off every source to pause polling playback. On upgrade, an existing custom feed becomes the sole enabled fixed source. New installations start with the regional Murmur service.
 - **Rhythm** controls the base interval and optional increase after playback. Defaults are 5 minutes initially, 5 minutes per increase, and a 15-minute maximum. A round without playback restores the base interval. Fixed mode always uses the base interval. Changes to the schedule or source list restart the wait.
 - **Maintenance** contains software updates and the airline logo cache.
 

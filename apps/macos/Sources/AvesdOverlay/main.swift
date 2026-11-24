@@ -28,6 +28,13 @@ final class OverlayApp: NSObject, NSApplicationDelegate {
     private let preferences = DaemonPreferences()
     private let eventPolling = EventPolling()
     private let navigation = SettingsNavigation()
+    private lazy var localServer = LocalMurmurServer(allowsTrigger: { [weak self] in
+        self?.preferences.allowsTriggers == true
+    }, trigger: { [weak self] id, event in
+        guard let self else { return .unavailable }
+        return eventPolling.trigger(id: id, data: event) { showOverlay(.event($0)) }
+    }, onReady: { [weak self] in self?.preferences.addLocalSourceIfNeeded() })
+    private var serverSubscription: AnyCancellable?
     private var scheduleSubscription: AnyCancellable?
     private let panel = OverlayPanel(size: OverlayLayout.panelSize)
     private lazy var host = NSHostingView(rootView: OverlayView(state: state))
@@ -71,10 +78,15 @@ final class OverlayApp: NSObject, NSApplicationDelegate {
         if preferences.usesRegion { region.refreshIfNeeded() }
         NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(didWake),
             name: NSWorkspace.didWakeNotification, object: nil)
+        serverSubscription = preferences.$localServerEnabled.removeDuplicates().sink { [weak self] enabled in
+            guard let self else { return }
+            if enabled { localServer.start() } else { localServer.stop() }
+        }
         var previousSources = preferences.sources
         scheduleSubscription = preferences.$sources.removeDuplicates()
-            .combineLatest(preferences.$polling.removeDuplicates(), region.$selection.map(\.cell).removeDuplicates())
-            .sink { [weak self] sources, _, _ in
+            .combineLatest(preferences.$polling.removeDuplicates(), region.$selection.map(\.cell).removeDuplicates(),
+                           localServer.$state.map(\.isRunning).removeDuplicates())
+            .sink { [weak self] sources, _, _, _ in
                 guard let self else { return }
                 locationItem.isHidden = !sources.contains { $0.enabled && $0.mode == .regional }
                 let changed = previousSources.filter { old in
@@ -85,7 +97,9 @@ final class OverlayApp: NSObject, NSApplicationDelegate {
                 polling?.cancel()
                 polling = Task { [weak self] in
                     guard let self else { return }
-                    await eventPolling.run(preferences: preferences, region: region) { [weak self] in
+                    await eventPolling.run(preferences: preferences, region: region, sources: {
+                        preferences.sources.filter { $0.mode != .local || localServer.state.isRunning }
+                    }) { [weak self] in
                         self?.showOverlay(.event($0)) ?? false
                     }
                 }
@@ -104,6 +118,9 @@ final class OverlayApp: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         NSWorkspace.shared.notificationCenter.removeObserver(self)
+        serverSubscription?.cancel()
+        scheduleSubscription?.cancel()
+        localServer.stop()
         polling?.cancel()
     }
 
@@ -114,7 +131,8 @@ final class OverlayApp: NSObject, NSApplicationDelegate {
 
     @objc private func showSettings() {
         if settingsController == nil {
-            let settings = SettingsView(region: region, preferences: preferences, polling: eventPolling, updates: updates, cache: cache,
+            let settings = SettingsView(region: region, preferences: preferences, polling: eventPolling, localServer: localServer,
+                                        updates: updates, cache: cache,
                                         preview: { [weak self] event in self?.present(event) },
                                         changePrefetch: { [weak self] enabled in self?.setPrefetch(enabled) },
                                         clearCache: { [weak self] in try await self?.clearLogos() }, navigation: navigation)

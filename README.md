@@ -2,6 +2,8 @@
 
 A quiet, playful desktop tool. The macOS prototype previews aircraft flyovers, rain showers, sunrises, bridge lifts, turning tides, and last trains at the screen edge and keeps keyboard focus in the active app.
 
+On macOS, scripts can also prepare events or display a personal note through the optional [local Murmur server](apps/macos/README.md#local-server).
+
 Read the [design principles](docs/design.md) when designing or reviewing a screen-edge event.
 
 ## Source layout

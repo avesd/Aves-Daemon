@@ -2,7 +2,7 @@ import Foundation
 import Combine
 
 struct MurmurSource: Codable, Identifiable, Equatable, Sendable {
-    enum Mode: String, Codable, CaseIterable { case regional, fixed }
+    enum Mode: String, Codable, CaseIterable { case regional, fixed, local }
     var id = UUID()
     var name: String
     var address: String
@@ -10,6 +10,10 @@ struct MurmurSource: Codable, Identifiable, Equatable, Sendable {
     var enabled = true
 
     static let official = MurmurSource(name: "Murmur", address: "https://murmur-api.avesd.ai", mode: .regional)
+
+    static let localPort: UInt16 = 47831
+    static let local = MurmurSource(id: UUID(uuidString: "1FE1DA74-556B-4C3F-905B-B3C3C0542535")!,
+                                    name: "Local server", address: "http://127.0.0.1:\(localPort)", mode: .local)
 
     var url: URL? {
         guard let components = URLComponents(string: address),
@@ -22,7 +26,8 @@ struct MurmurSource: Codable, Identifiable, Equatable, Sendable {
     func endpoint(cell: String?) -> URL? {
         guard enabled, let url else { return nil }
         if mode == .fixed { return url }
-        guard let cell else { return nil }
+        let selectedCell = mode == .local ? (cell ?? RegionSelection.kyoto.cell) : cell
+        guard let cell = selectedCell else { return nil }
         return url.appendingPathComponent("v1/regions/\(cell)/event")
     }
 }
@@ -58,6 +63,12 @@ final class DaemonPreferences: ObservableObject {
     @Published var preloadLogos: Bool {
         didSet { defaults.set(preloadLogos, forKey: "prefetchCommonAirlines") }
     }
+    @Published var localServerEnabled: Bool {
+        didSet { defaults.set(localServerEnabled, forKey: "localServerEnabled") }
+    }
+    @Published var allowsTriggers: Bool {
+        didSet { defaults.set(allowsTriggers, forKey: "localServerAllowsTriggers") }
+    }
     @Published var sources: [MurmurSource] {
         didSet { persist(sources, key: "murmurSources") }
     }
@@ -68,6 +79,8 @@ final class DaemonPreferences: ObservableObject {
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
+        localServerEnabled = defaults.bool(forKey: "localServerEnabled")
+        allowsTriggers = defaults.bool(forKey: "localServerAllowsTriggers")
         let seconds = defaults.integer(forKey: "flyoverDuration")
         displaySeconds = Self.durations.contains(seconds) ? seconds : 5
         preloadLogos = defaults.object(forKey: "prefetchCommonAirlines") as? Bool ?? true
@@ -85,6 +98,18 @@ final class DaemonPreferences: ObservableObject {
             }
             persist(sources, key: "murmurSources")
         }
+    }
+
+    func addLocalSourceIfNeeded() {
+        if !sources.contains(where: { $0.mode == .local }) { sources.append(.local) }
+    }
+
+    func moveSource(_ id: UUID, to index: Int) {
+        guard let from = sources.firstIndex(where: { $0.id == id }), sources.indices.contains(index),
+              from != index else { return }
+        var order = sources
+        order.insert(order.remove(at: from), at: index)
+        sources = order
     }
 
     func setPolling(_ policy: PollingPolicy) {

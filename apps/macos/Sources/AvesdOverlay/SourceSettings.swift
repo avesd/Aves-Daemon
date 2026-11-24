@@ -4,6 +4,7 @@ struct SourceSettings: View {
     @ObservedObject var preferences: DaemonPreferences
     @ObservedObject var polling: EventPolling
     @ObservedObject var region: EventRegion
+    @ObservedObject var localServer: LocalMurmurServer
     @State private var editing: MurmurSource?
 
     var body: some View {
@@ -19,29 +20,53 @@ struct SourceSettings: View {
                     }
                     .buttonStyle(.borderedProminent)
                 }
-                VStack(alignment: .leading, spacing: 0) {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(alignment: .firstTextBaseline) {
+                        Text("Murmur sources").font(.headline)
+                        Spacer()
+                        Text("Include in polling").font(.caption).foregroundStyle(.secondary)
+                    }
+                    Text("When several sources have events, they take turns in this order.")
+                        .font(.callout).foregroundStyle(.secondary)
                     ForEach($preferences.sources) { $source in
+                        let index = preferences.sources.firstIndex { $0.id == source.id } ?? 0
                         HStack(spacing: 12) {
-                            Image(systemName: source.mode == .regional ? "antenna.radiowaves.left.and.right" : "server.rack")
-                                .foregroundStyle(.tint)
-                                .frame(width: 32, height: 32)
-                                .background(.tint.opacity(0.10), in: RoundedRectangle(cornerRadius: 8))
+                            Image(systemName: "line.3.horizontal")
+                                .foregroundStyle(.secondary)
+                                .frame(width: 22, height: 32)
+                                .contentShape(Rectangle())
+                                .draggable(source.id.uuidString) { Text(source.name).padding(6) }
+                                .help("Drag to reorder \(source.name)")
                             VStack(alignment: .leading, spacing: 3) {
                                 Text(source.name).font(.headline)
                                 Text(source.address).font(.system(.caption, design: .monospaced))
                                     .foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
                                     .help(source.address)
-                                Text(source.enabled ? polling.status[source.id] ?? "Waiting for the next request" : "Disabled")
+                                Text(status(of: source))
                                     .font(.caption).foregroundStyle(.secondary)
                             }
                             Spacer(minLength: 4)
-                            Button { editing = source } label: { Image(systemName: "pencil") }
-                                .accessibilityLabel("Edit \(source.name)")
-                                .help("Edit \(source.name)")
-                            Toggle("Enable \(source.name)", isOn: $source.enabled)
+                            Menu {
+                                if source.mode != .local { Button("Edit source…") { editing = source } }
+                                Button("Move up") { preferences.moveSource(source.id, to: index - 1) }
+                                    .disabled(index == 0)
+                                Button("Move down") { preferences.moveSource(source.id, to: index + 1) }
+                                    .disabled(index + 1 >= preferences.sources.count)
+                            } label: { Image(systemName: "ellipsis.circle") }
+                            .menuStyle(.borderlessButton).fixedSize()
+                            .accessibilityLabel("Options for \(source.name)")
+                            Toggle("Include \(source.name) in polling", isOn: $source.enabled)
                                 .labelsHidden().toggleStyle(.switch)
+                                .help("Include in polling")
                         }
                         .padding(.vertical, 12)
+                        .contentShape(Rectangle())
+                        .dropDestination(for: String.self) { items, _ in
+                            guard let value = items.first, let id = UUID(uuidString: value),
+                                  preferences.sources.contains(where: { $0.id == id }) else { return false }
+                            preferences.moveSource(id, to: index)
+                            return true
+                        }
                         Divider()
                     }
                     if preferences.sources.isEmpty {
@@ -49,8 +74,15 @@ struct SourceSettings: View {
                     }
                 }
                 if preferences.usesRegion { RegionSettings(region: region) }
+                LocalServerSettings(preferences: preferences, server: localServer)
             }
         }
+    }
+
+    private func status(of source: MurmurSource) -> String {
+        if source.mode == .local && !localServer.state.isRunning { return "Server stopped" }
+        if !source.enabled { return "Polling off" }
+        return polling.status[source.id] ?? "Waiting for the next request"
     }
 }
 

@@ -52,6 +52,7 @@ struct SettingsView: View {
     @ObservedObject var region: EventRegion
     @ObservedObject var preferences: DaemonPreferences
     @ObservedObject var polling: EventPolling
+    let localServer: LocalMurmurServer
     let updates: SoftwareUpdates
     let cache: AirlineLogoCache?
     let preview: (PreviewKind) -> Void
@@ -82,7 +83,7 @@ struct SettingsView: View {
                     }
                     switch navigation.page {
                     case .display: displaySettings
-                    case .sources: SourceSettings(preferences: preferences, polling: polling, region: region)
+                    case .sources: SourceSettings(preferences: preferences, polling: polling, region: region, localServer: localServer)
                     case .polling: PollingSettings(preferences: preferences)
                     case .maintenance: maintenanceSettings
                     }

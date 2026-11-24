@@ -83,6 +83,26 @@ impl<'a> Content<'a> {
             return Some(content);
         }
         let (place, change, detail): (&Place, &str, String) = match &event.payload {
+            Note(note) => {
+                let summary = note.summary.trim();
+                if summary.is_empty() {
+                    return None;
+                }
+                content.headline = summary;
+                content.title = summary;
+                content.accessibility = summary.to_owned();
+                if let Some(detail) = note
+                    .detail
+                    .as_deref()
+                    .map(str::trim)
+                    .filter(|s| !s.is_empty())
+                {
+                    content.rows.push(("Detail", detail.into()));
+                    content.accessibility.push_str(". ");
+                    content.accessibility.push_str(detail);
+                }
+                return Some(content);
+            }
             Rain(r) if r.previous_intensity.is_none() && r.current_intensity.is_none() => {
                 content.headline = r.place.local_name.as_deref().unwrap_or(&r.place.place);
                 content.secondary = "正在下雨";

@@ -1,6 +1,7 @@
 mod bridge_lift;
 mod flyover;
 mod last_train;
+mod note;
 pub mod rain;
 mod sunrise;
 mod turning_tide;
@@ -10,6 +11,7 @@ use avesd_events::{Payload, turning_tide::Turn};
 use rain::RainShower;
 
 pub enum Effect {
+    Note,
     Flyover,
     Rain(RainShower),
     Sunrise,
@@ -24,6 +26,7 @@ pub struct Layout {
 impl Effect {
     pub fn new(payload: &Payload, seed: u64, local_time: &str) -> Self {
         match payload {
+            Payload::Note(_) => Self::Note,
             Payload::Flyover(_) => Self::Flyover,
             Payload::Rain(_) => Self::Rain(RainShower::new(seed)),
             Payload::Sunrise(_) => Self::Sunrise,
@@ -39,6 +42,7 @@ impl Effect {
     }
     pub fn duration(&self) -> f64 {
         match self {
+            Self::Note => 0.65,
             Self::Flyover => 2.2,
             Self::Rain(r) => r.duration_ms / 1000.,
             Self::Sunrise => 6.1,
@@ -75,6 +79,7 @@ impl Effect {
     pub(super) fn draw_icon(&self, t: f64, v: f64, layout: &Layout, icon: &mut Canvas) {
         icon.0.clear();
         match self {
+            Self::Note => note::icon(icon, t),
             Self::Sunrise => sunrise::icon(icon, t),
             Self::BridgeLift => bridge_lift::icon(icon),
             Self::TurningTide { rising } => {
@@ -95,6 +100,9 @@ impl Effect {
     ) -> [f64; 4] {
         scenery.0.clear();
         let active = t < self.duration();
+        if matches!(self, Self::Note) {
+            return [1., eased(t, 0.10, 0.55), 1., 1.];
+        }
         if let Self::Rain(r) = self {
             return r.draw(t, active, scenery);
         }

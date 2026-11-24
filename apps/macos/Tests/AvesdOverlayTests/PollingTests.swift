@@ -3,7 +3,7 @@ import Testing
 @testable import AvesdOverlay
 
 @MainActor
-private func withDefaults(_ test: (UserDefaults) async throws -> Void) async rethrows {
+func withDefaults(_ test: (UserDefaults) async throws -> Void) async rethrows {
     let suite = "AvesdTests.\(UUID().uuidString)"
     let defaults = UserDefaults(suiteName: suite)!
     defer { defaults.removePersistentDomain(forName: suite) }

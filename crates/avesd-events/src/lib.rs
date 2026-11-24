@@ -2,6 +2,7 @@
 pub mod bridge_lift;
 pub mod flyover;
 pub mod last_train;
+pub mod note;
 pub mod rain;
 pub mod sunrise;
 pub mod turning_tide;
@@ -26,6 +27,7 @@ pub enum Payload {
     BridgeLift(bridge_lift::BridgeLift),
     TurningTide(turning_tide::TurningTide),
     LastTrain(last_train::LastTrain),
+    Note(note::Note),
 }
 
 /// Locality and optional localized place name supplied with an observation.

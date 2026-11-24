@@ -27,10 +27,27 @@ pub struct Frame {
     scenery: *const Command,
     scenery_count: usize,
 }
-fn create(data: &[u8], o: Options, preview: bool) -> Option<Box<Session>> {
+fn decode_event(data: &[u8]) -> Option<Event> {
     let event: Event = serde_json::from_slice(data).ok()?;
-    if event.id.trim().is_empty()
-        || !o.hold_ms.is_finite()
+    (!event.id.trim().is_empty()).then_some(event)
+}
+
+/// Checks whether a wire event can produce overlay content.
+///
+/// # Safety
+/// A non-null `data` must point to `len` readable bytes for the duration of this call.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn avesd_event_is_playable(data: *const u8, len: usize) -> bool {
+    if data.is_null() || len > isize::MAX as usize {
+        return false;
+    }
+    decode_event(unsafe { std::slice::from_raw_parts(data, len) })
+        .is_some_and(|event| Content::new(&event, false).is_some())
+}
+
+fn create(data: &[u8], o: Options, preview: bool) -> Option<Box<Session>> {
+    let event = decode_event(data)?;
+    if !o.hold_ms.is_finite()
         || o.hold_ms <= 0.
         || !o.width.is_finite()
         || !o.anchor_x.is_finite()

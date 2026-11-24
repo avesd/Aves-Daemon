@@ -8,6 +8,17 @@ final class EventPolling: ObservableObject {
         let id: UUID
         let url: URL
 
+        func pollURL(played: [String]) -> URL {
+            guard !played.isEmpty, var address = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return url }
+            var query = URLComponents()
+            query.queryItems = played.map { URLQueryItem(name: "played", value: $0) }
+            // Murmur decodes '+' as a space in a query. Encode literal plus signs in new IDs.
+            let history = query.percentEncodedQuery?.replacingOccurrences(of: "+", with: "%2B")
+            address.percentEncodedQuery = [address.percentEncodedQuery, history].compactMap { $0 }
+                .filter { !$0.isEmpty }.joined(separator: "&")
+            return address.url ?? url
+        }
+
         var historyScope: String {
             "\(id)/\(url.scheme ?? "")/\(url.host ?? "")/\(url.port ?? -1)"
         }
@@ -29,23 +40,28 @@ final class EventPolling: ObservableObject {
     private let fetch: Fetch
     private var cooldowns: [Destination: Date] = [:]
     private var lastPlayedSource: UUID?
+    private var triggerGeneration: UInt = 0
+    private var history: [String: Date]
+    private var known: [String: [String: Date]]
     @Published private(set) var status: [UUID: String] = [:]
 
     init(defaults: UserDefaults = .standard, fetch: @escaping Fetch = { try await URLSession.shared.data(for: $0) }) {
         self.defaults = defaults
         self.fetch = fetch
+        history = defaults.dictionary(forKey: "recentlyPlayedEvents") as? [String: Date] ?? [:]
+        known = defaults.dictionary(forKey: "playedEventsBySource") as? [String: [String: Date]] ?? [:]
     }
 
-    func run(preferences: DaemonPreferences, region: EventRegion, play: (Data) -> Bool) async {
+    func run(preferences: DaemonPreferences, region: EventRegion, sources: () -> [MurmurSource], play: (Data) -> Bool) async {
         let policy = preferences.polling
         var minutes = policy.base
         while !Task.isCancelled {
-            let available = destinations(preferences.sources, cell: region.availableCell)
+            let available = destinations(sources(), cell: region.availableCell)
             let earliest = available.map { cooldowns[$0]?.timeIntervalSinceNow ?? 0 }.min() ?? 0
             do { try await Task.sleep(for: .seconds(max(Double(minutes * 60), earliest))) }
             catch { return }
             if preferences.usesRegion { region.refreshIfNeeded() }
-            let played = await poll(sources: { preferences.sources }, cell: { region.availableCell }, play: play)
+            let played = await poll(sources: sources, cell: { region.availableCell }, play: play)
             minutes = policy.nextInterval(after: minutes, played: played)
         }
     }
@@ -57,22 +73,20 @@ final class EventPolling: ObservableObject {
     }
 
     func poll(sources: () -> [MurmurSource], cell: () -> String?, play: (Data) -> Bool) async -> Bool {
+        let generationAtStart = triggerGeneration
         let configured = destinations(sources(), cell: cell())
-        let cutoff = Date().addingTimeInterval(-3 * 60 * 60)
-        var history = (defaults.dictionary(forKey: "recentlyPlayedEvents") as? [String: Date] ?? [:])
-            .filter { $0.value > cutoff }
-        var known = (defaults.dictionary(forKey: "playedEventsBySource") as? [String: [String: Date]] ?? [:])
-            .mapValues { $0.filter { $0.value > cutoff } }.filter { !$0.value.isEmpty }
+        pruneHistory()
 
         let now = Date()
         cooldowns = cooldowns.filter { $0.value > now }
         let ready = configured.filter { cooldowns[$0] == nil }
         let results = await withTaskGroup(of: (Destination, Outcome).self) { group in
             for destination in ready {
-                let ids = known[destination.historyScope]?.keys.sorted() ?? []
-                let query = ids.map { URLQueryItem(name: "played", value: $0) }
-                let url = query.isEmpty ? destination.url : destination.url.appending(queryItems: query)
-                let request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 30)
+                let ids = (known[destination.historyScope] ?? [:]).filter { $0.key.utf8.count <= 256 }
+                    .sorted { $0.value == $1.value ? $0.key < $1.key : $0.value > $1.value }
+                    .prefix(64).map(\.key)
+                let request = URLRequest(url: destination.pollURL(played: ids), cachePolicy: .reloadIgnoringLocalCacheData,
+                                         timeoutInterval: 30)
                 group.addTask { [fetch] in (destination, await Self.request(request, fetch: fetch)) }
             }
             var results: [Destination: Outcome] = [:]
@@ -94,7 +108,7 @@ final class EventPolling: ObservableObject {
             case .retry(let date):
                 cooldowns[source] = date
             case .event(let id, let data):
-                if history[id] == nil && !played && play(data) {
+                if generationAtStart == triggerGeneration && history[id] == nil && !played && play(data) {
                     history[id] = Date()
                     lastPlayedSource = source.id
                     played = true
@@ -109,9 +123,39 @@ final class EventPolling: ObservableObject {
                 known[source.historyScope, default: [:]][id] = date
             }
         }
+        saveHistory()
+        return played
+    }
+
+    enum TriggerResult: String { case started, alreadyPlayed = "already_played", unavailable }
+
+    func trigger(id: String, data: Data, play: (Data) -> Bool) -> TriggerResult {
+        pruneHistory()
+        let result: TriggerResult
+        if history[id] != nil {
+            result = .alreadyPlayed
+        } else {
+            guard play(data) else { return .unavailable }
+            history[id] = Date()
+            triggerGeneration &+= 1
+            result = .started
+        }
+        let local = MurmurSource.local
+        let scope = Destination(id: local.id, url: local.url!).historyScope
+        known[scope, default: [:]][id] = history[id]
+        saveHistory()
+        return result
+    }
+
+    private func pruneHistory() {
+        let cutoff = Date().addingTimeInterval(-3 * 60 * 60)
+        history = history.filter { $0.value > cutoff }
+        known = known.mapValues { $0.filter { $0.value > cutoff } }.filter { !$0.value.isEmpty }
+    }
+
+    private func saveHistory() {
         defaults.set(history, forKey: "recentlyPlayedEvents")
         defaults.set(known, forKey: "playedEventsBySource")
-        return played
     }
 
     func clearStatus(for ids: Set<UUID>) {
