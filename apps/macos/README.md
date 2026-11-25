@@ -2,7 +2,23 @@
 
 Use the Node version in the root `.nvmrc` and run `pnpm install --frozen-lockfile` at the repository root before the first build. The macOS build generates its menu bar and settings artwork from the pinned `@avesd/logo/geometry` square and standard variants. The compiled application contains the paths and renders the brand mark offline.
 
-Run `make run` here to build and open `.build/Aves Daemon.app`. The app runs as a menu bar accessory without a Dock icon. Click the bird in the macOS menu bar, open **Settings… → Display**, and click **Preview Once** beside the display duration. The preview plays a sample United Airlines flight from Los Angeles to Sydney. The plane crosses the upper-right corner of the display containing the pointer and reveals its carrier mark, route, callsign, and aircraft type in its wake. Reduce Motion shows the summary in place.
+## Build channels
+
+| Channel | Root build target | App under `apps/macos/.build/` | Menu bar | Loopback TCP port |
+| --- | --- | --- | --- | --- |
+| Release | `make build-macos-release` | `distribution/Aves Daemon.app` | Bird | `28373` (AVESD) |
+| Local | `make build-macos` | `Aves Daemon Local.app` | Bird and L | `28375` (AVES + L) |
+| Test | `make build-macos-test` | `Aves Daemon Test.app` | Bird and T | `28378` (AVES + T) |
+
+Each macOS user can run one instance of each channel. Opening another copy of the same channel brings its settings forward. Hover over the menu bar item for the channel, version, and build number. Each channel has its own preferences, playback history, cache, local event database, and Keychain token. The ports spell the names on a telephone keypad.
+
+The [channel profiles](Sources/AvesdEnvironment/channels.json) define the bundle identities, ports, badges, build defaults, and availability of software updates. Make, SwiftPM, and the bundle configuration script use the selected profile when building the app. The [AvesdEnvironment module](Sources/AvesdEnvironment/AppEnvironment.swift) embeds the same profiles and selects one at startup by bundle ID. The standalone executable selects Local. The app passes that environment's URLs, preferences, and capabilities to the features that use them.
+
+Run `make run-macos` from the repository root (or `make run` here) to rebuild and restart Local. To run an optimized Local build, use `make run-macos CONFIGURATION=release`. Test and Release use release optimization by default. Open their app bundles to run them alongside Local.
+
+## Playback preview
+
+The app runs as a menu bar accessory without a Dock icon. Click the bird in the macOS menu bar, open **Settings… → Display**, and click **Preview Once** beside the display duration. The preview plays a sample United Airlines flight from Los Angeles to Sydney. The plane crosses the upper-right corner of the display containing the pointer and reveals its carrier mark, route, callsign, and aircraft type in its wake. Reduce Motion shows the summary in place.
 
 Rain events generate a fresh shower on each playback. The first drop lands below the icon slot and sends out a ripple as the city and rain message appear. The smaller drops vary in timing and position. Events share the same screen position, summary width, hover behavior, and display duration.
 
@@ -27,7 +43,7 @@ The open-source app connects automatically to Murmur, a free, closed-source even
 
 ## Local server
 
-Open **Settings → Data sources → Local server** and enable the server to accept requests at `http://127.0.0.1:47831`. On first start, Avesd adds an enabled **Local server** entry to the end of the Murmur sources. Drag a source by its handle or choose **Move up** or **Move down** from its menu. The order controls the client's round-robin selection among sources that have events. Stopping the server skips its entry and preserves its position.
+Open **Settings → Data sources → Local server** and enable the server. Choose **Copy address** to use this channel's loopback URL. On first start, Avesd adds an enabled **Local server** entry to the end of the Murmur sources. Drag a source by its handle or choose **Move up** or **Move down** from its menu. The order controls the client's round-robin selection among sources that have events. Stopping the server skips its entry and preserves its position.
 
 The server and **Allow immediate display (trigger)** both start off. For pull-only use, enable the server and include its source in polling. For trigger-only use, enable immediate display and turn off polling on its source row. The server keeps prepared candidates across app restarts.
 
@@ -44,7 +60,7 @@ Use any supported event or send a `note` with a required `data.summary` and opti
 To try a particular animation during development, enable immediate display and send its [sample JSON](../../crates/avesd-events/fixtures/) as the body of `POST /v1/trigger`. Use a fresh `id` to replay the same sample within three hours.
 
 ```sh
-base=http://127.0.0.1:47831
+base=http://127.0.0.1:28375  # Aves Daemon Local
 event='{"id":"build-42","kind":"note","occurred_at":"2026-11-24T15:42:00Z","data":{"summary":"Build ready","detail":"42 checks passed."}}'
 
 curl --fail-with-body -X PUT "$base/v1/events/build-42" \
@@ -70,15 +86,14 @@ Use the persistent sidebar to switch between four pages. Changes take effect whi
 - **Display** lets you choose 3, 5, or 8 seconds and try that duration with **Preview Once**.
 - **Data sources** lists each source and its latest request result. Add a regional API base URL to use the selected area, or enter a complete fixed event URL. Edit a source to rename or remove it. Turn off every source to pause polling playback. On upgrade, an existing custom feed becomes the sole enabled fixed source. New installations start with the regional Murmur service.
 - **Rhythm** controls the base interval and optional increase after playback. Defaults are 5 minutes initially, 5 minutes per increase, and a 15-minute maximum. A round without playback restores the base interval. Fixed mode always uses the base interval. Changes to the schedule or source list restart the wait.
-- **Maintenance** contains software updates and the airline logo cache.
-
-Each round requests eligible sources concurrently. At most one event plays. When several sources offer events, selection starts after the last source that played. A source's retry delay applies only to that source. Playback IDs are remembered for three hours across launches. A source receives only IDs it has supplied.
+- **Maintenance** contains the airline logo cache. Release builds also offer software updates when configured.
 
 The interval preview on **Rhythm** shows the base wait and the next two waits after consecutive plays. The sidebar pairs the bird with the Aves Daemon wordmark. The bird traces in when the window opens. Hovering the brand or focusing it with the keyboard slides the D and fades it into a lowercase d. The bird nods and morphs to the standard mark. Activating the brand opens the About sheet with the product website, release version, and build number. Reduce Motion switches directly between the two brand states. Settings persist across launches. The **Airline logos** section controls preloading, shows the number and size of cached marks, and can clear those marks. Downloading an individual flight's logo on demand still works with preloading off.
 
 ## Software updates
 
-In an update-enabled build, Sparkle asks for permission to check for updates on
+Local and Test exclude the updater and its menu and settings controls.
+In a Release build configured with an update feed and public key, Sparkle asks for permission to check for updates on
 the second launch. With permission, the app checks approximately daily. A dot
 on the menu bar bird and the **Update Available** menu item announce the new
 version. Choose the item to read the release notes and install and relaunch
@@ -93,6 +108,6 @@ offer to install and relaunch.
 
 With preloading enabled, the first preview warms the cache for United, Delta, and Lufthansa. The client requests monochrome SVGs from the [Soaring Symbols 0.4 release line](https://github.com/soaring-symbols/soaring-symbols#cdn). Its [brand asset notice](https://github.com/soaring-symbols/soaring-symbols/blob/main/DISCLAIMER.md) describes rights in the individual marks.
 
-SVGs live under the user caches directory in `<bundle-id>/airline-logos/`. The standalone Swift executable uses `ai.avesd.daemon` as its identifier when it has no bundle ID. Cached images older than 30 days are refreshed in the background. The cache evicts the oldest SVGs above 4 MiB. When a logo is unavailable at reveal time, the airline code stays in place for the entire pass.
+SVGs live under the user caches directory in `<bundle-id>/airline-logos/`. The standalone Swift executable uses the Local channel. Cached images older than 30 days are refreshed in the background. The cache evicts the oldest SVGs above 4 MiB. When a logo is unavailable at reveal time, the airline code stays in place for the entire pass.
 
 Run `make validate` from the repository root to check the drawing ABI, multi-source polling, and authenticated loopback playback, including duplicate suppression across restarts.

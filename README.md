@@ -36,8 +36,9 @@ to check that Rust and the C header agree on drawing commands and colors.
 On macOS the same command builds the native test dependencies and checks
 multi-source polling and authenticated playback through the local server.
 
-Run `make` to list the available targets. Build the [macOS overlay](apps/macos/README.md)
-with `make build-macos` or launch it with `make run-macos`.
+Run `make run-macos` to build and restart Aves Daemon Local. Use `make build-macos-test`
+for a separate, optimized test app. All three [macOS build channels](apps/macos/README.md#build-channels)
+can run side by side. Run `make` to list the available targets.
 
 ## Credits
 
@@ -51,8 +52,8 @@ root, use `make changeset TARGET=apps/macos BUMP=minor SUMMARY="Describe the cli
 or choose the client in the interactive `make changeset` prompt.
 Preview with `make version-dry-run TARGET=apps/macos` and apply with
 `make version-packages TARGET=apps/macos`. The client keeps its quarterly
-changelog and ledger under `apps/macos/.changeset/history/`. Each applied release increments the manifest's integer `build` once. Both
-build targets embed `version` as `CFBundleShortVersionString` and `build`
+changelog and ledger under `apps/macos/.changeset/history/`. Each applied release increments the manifest's integer `build` once.
+Each channel embeds `version` as `CFBundleShortVersionString` and `build`
 as `CFBundleVersion`. Rebuilding the same manifest reuses both values.
 Prepare a new changeset release for each distinct distributed update.
 
@@ -64,7 +65,8 @@ and notarization are separate distribution steps.
 To enable Sparkle in this bundle, set both `UPDATE_FEED_URL` (the stable HTTPS
 appcast URL) and `UPDATE_PUBLIC_KEY` (the base64 Ed25519 public key from
 Sparkle's `generate_keys`) when running `make build-macos-release`.
-Omit both for a local build with updating disabled. Keep the signing private
+Omit both to build the Release app with updating disabled. Local and Test builds exclude Sparkle.
+Keep the signing private
 key with the publisher and supply the same public configuration on subsequent
 releases. Apply the configured signing mode, archive the app preserving framework
 symlinks, then use Sparkle's `generate_appcast` with the matching private key.

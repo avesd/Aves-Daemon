@@ -11,11 +11,14 @@ struct MurmurSource: Codable, Identifiable, Equatable, Sendable {
 
     static let official = MurmurSource(name: "Murmur", address: "https://murmur-api.avesd.ai", mode: .regional)
 
-    static let localPort: UInt16 = 47831
     static let local = MurmurSource(id: UUID(uuidString: "1FE1DA74-556B-4C3F-905B-B3C3C0542535")!,
-                                    name: "Local server", address: "http://127.0.0.1:\(localPort)", mode: .local)
+                                    name: "Local server", address: "", mode: .local)
 
-    var url: URL? {
+    func resolvedAddress(localServerURL: URL) -> String {
+        mode == .local ? localServerURL.absoluteString : address
+    }
+
+    var configuredURL: URL? {
         guard let components = URLComponents(string: address),
               let scheme = components.scheme?.lowercased(), ["https", "http"].contains(scheme),
               let host = components.host, !host.isEmpty, components.fragment == nil,
@@ -23,8 +26,8 @@ struct MurmurSource: Codable, Identifiable, Equatable, Sendable {
         return components.url
     }
 
-    func endpoint(cell: String?) -> URL? {
-        guard enabled, let url else { return nil }
+    func endpoint(cell: String?, localServerURL: URL) -> URL? {
+        guard enabled, let url = mode == .local ? localServerURL : configuredURL else { return nil }
         if mode == .fixed { return url }
         let selectedCell = mode == .local ? (cell ?? RegionSelection.kyoto.cell) : cell
         guard let cell = selectedCell else { return nil }
@@ -77,7 +80,7 @@ final class DaemonPreferences: ObservableObject {
     }
     var usesRegion: Bool { sources.contains { $0.enabled && $0.mode == .regional } }
 
-    init(defaults: UserDefaults = .standard) {
+    init(defaults: UserDefaults) {
         self.defaults = defaults
         localServerEnabled = defaults.bool(forKey: "localServerEnabled")
         allowsTriggers = defaults.bool(forKey: "localServerAllowsTriggers")

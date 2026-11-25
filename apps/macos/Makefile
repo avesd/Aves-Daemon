@@ -1,26 +1,50 @@
-.PHONY: run build rust brand
+.PHONY: run build test rust brand app-path sparkle-tools-path
+.DEFAULT_GOAL := run
 
-CONFIGURATION ?= debug
-ifeq ($(CONFIGURATION),release)
-APP := .build/distribution/Aves Daemon.app
-CARGO_FLAGS := --release
-else
-APP := .build/Aves Daemon.app
+CHANNEL ?= local
+CHANNELS := Sources/AvesdEnvironment/channels.json
+channel_key := $(subst ','"'"',$(CHANNEL))
+channel_field = $(shell plutil -extract '$(channel_key).$(1)' raw -o - "$(CHANNELS)")
+ifeq ($(shell plutil -extract '$(channel_key)' json -expect dictionary -o /dev/null "$(CHANNELS)" >/dev/null 2>&1 && echo found),)
+$(error Unknown macOS channel '$(CHANNEL)')
 endif
 
+APP := $(call channel_field,appDirectory)/$(call channel_field,appName).app
+SWIFT_BUILD := $(call channel_field,scratchPath)
+CONFIGURATION ?= $(call channel_field,configuration)
+export AVESD_BUILD_CHANNEL := $(CHANNEL)
+CARGO_FLAGS := $(if $(filter release,$(CONFIGURATION)),--release)
+
+app-path:
+	@printf '%s\n' "$(APP)"
+
+sparkle-tools-path:
+	@printf '%s\n' "$(SWIFT_BUILD)/artifacts/macos/Sparkle/bin"
+
 run: build
+ifeq ($(call channel_field,restartsOnRun),true)
+	open -n "$(APP)" --args --restart-local
+else
 	open "$(APP)"
+endif
 
 build: rust brand
-	swift build -c $(CONFIGURATION) --product AvesdOverlay
+	xcrun swift build --manifest-cache none --scratch-path "$(SWIFT_BUILD)" -c $(CONFIGURATION) --product AvesdOverlay
 	mkdir -p "$(APP)/Contents/Frameworks"
-	rsync -a --delete .build/$(CONFIGURATION)/Sparkle.framework/ "$(APP)/Contents/Frameworks/Sparkle.framework/"
+ifeq ($(call channel_field,includesUpdater),true)
+	rsync -a --delete "$(SWIFT_BUILD)/$(CONFIGURATION)/Sparkle.framework/" "$(APP)/Contents/Frameworks/Sparkle.framework/"
+else
+	$(RM) -r "$(APP)/Contents/Frameworks/Sparkle.framework"
+endif
 	install -C -S -m 755 .build/rust/$(CONFIGURATION)/libavesd_ffi.dylib "$(APP)/Contents/Frameworks/libavesd_ffi.dylib"
 	mkdir -p "$(APP)/Contents/MacOS"
-	install -C -S -m 755 .build/$(CONFIGURATION)/AvesdOverlay "$(APP)/Contents/MacOS/AvesdOverlay"
+	install -C -S -m 755 "$(SWIFT_BUILD)/$(CONFIGURATION)/AvesdOverlay" "$(APP)/Contents/MacOS/AvesdOverlay"
 	mkdir -p "$(APP)/Contents/Resources/Fonts"
 	rsync -rt --delete Sources/AvesdOverlay/Fonts/ "$(APP)/Contents/Resources/Fonts/"
-	node configure-bundle.ts "$(APP)/Contents/Info.plist"
+	node configure-bundle.ts "$(CHANNEL)" "$(APP)/Contents/Info.plist"
+
+test: rust brand
+	xcrun swift test --manifest-cache none --scratch-path "$(SWIFT_BUILD)" -c $(CONFIGURATION)
 
 rust:
 	cargo rustc $(CARGO_FLAGS) --locked --manifest-path ../../crates/avesd-ffi/Cargo.toml --target-dir .build/rust -- -C rpath=yes

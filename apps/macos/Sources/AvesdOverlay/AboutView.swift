@@ -1,19 +1,9 @@
+import AvesdEnvironment
 import SwiftUI
 
 struct AboutView: View {
+    let environment: AppEnvironment
     @Environment(\.dismiss) private var dismiss
-
-    static let version: String = {
-        let info = Bundle.main
-        let release = info.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
-        let build = info.object(forInfoDictionaryKey: "CFBundleVersion") as? String
-        if let release, !release.isEmpty {
-            if let build, !build.isEmpty { return "Version \(release) (\(build))" }
-            return "Version \(release)"
-        }
-        if let build, !build.isEmpty { return "Build \(build)" }
-        return "Development build"
-    }()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -24,9 +14,9 @@ struct AboutView: View {
                     .frame(width: 44, height: 44)
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("Aves Daemon").font(.custom("Futura-Medium", size: 22, relativeTo: .title2))
+                    Text(verbatim: environment.channel.appName).font(.custom("Futura-Medium", size: 22, relativeTo: .title2))
                         .accessibilityAddTraits(.isHeader)
-                    Text(verbatim: Self.version).font(.caption).foregroundStyle(.secondary)
+                    Text(verbatim: environment.version).font(.caption).foregroundStyle(.secondary)
                 }
             }
             Text("A menu bar app that previews passing aircraft at the edge of your screen.")

@@ -37,6 +37,7 @@ final class EventPolling: ObservableObject {
     }
 
     private let defaults: UserDefaults
+    private let localServerURL: URL
     private let fetch: Fetch
     private var cooldowns: [Destination: Date] = [:]
     private var lastPlayedSource: UUID?
@@ -45,8 +46,9 @@ final class EventPolling: ObservableObject {
     private var known: [String: [String: Date]]
     @Published private(set) var status: [UUID: String] = [:]
 
-    init(defaults: UserDefaults = .standard, fetch: @escaping Fetch = { try await URLSession.shared.data(for: $0) }) {
+    init(defaults: UserDefaults, localServerURL: URL, fetch: @escaping Fetch = { try await URLSession.shared.data(for: $0) }) {
         self.defaults = defaults
+        self.localServerURL = localServerURL
         self.fetch = fetch
         history = defaults.dictionary(forKey: "recentlyPlayedEvents") as? [String: Date] ?? [:]
         known = defaults.dictionary(forKey: "playedEventsBySource") as? [String: [String: Date]] ?? [:]
@@ -68,7 +70,7 @@ final class EventPolling: ObservableObject {
 
     private func destinations(_ sources: [MurmurSource], cell: String?) -> [Destination] {
         sources.compactMap { source in
-            source.endpoint(cell: cell).map { Destination(id: source.id, url: $0) }
+            source.endpoint(cell: cell, localServerURL: localServerURL).map { Destination(id: source.id, url: $0) }
         }
     }
 
@@ -140,8 +142,7 @@ final class EventPolling: ObservableObject {
             triggerGeneration &+= 1
             result = .started
         }
-        let local = MurmurSource.local
-        let scope = Destination(id: local.id, url: local.url!).historyScope
+        let scope = Destination(id: MurmurSource.local.id, url: localServerURL).historyScope
         known[scope, default: [:]][id] = history[id]
         saveHistory()
         return result

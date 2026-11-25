@@ -1,21 +1,28 @@
-import Sparkle
+import AvesdEnvironment
 import SwiftUI
+
+#if canImport(Sparkle)
+import Sparkle
 
 @MainActor
 final class SoftwareUpdates: NSObject, @preconcurrency SPUStandardUserDriverDelegate {
+    private let environment: AppEnvironment
     private let item = NSMenuItem(title: "Check for Updates…", action: nil, keyEquivalent: "")
     private weak var button: NSStatusBarButton?
     private var controller: SPUStandardUpdaterController?
-    var updater: SPUUpdater? { controller?.updater }
+    init(environment: AppEnvironment) { self.environment = environment }
+
+    @ViewBuilder var settings: some View {
+        if let updater = controller?.updater {
+            Text("Software updates").font(.headline)
+            UpdateSettings(updater: updater).toggleStyle(.switch)
+        }
+    }
 
     func attach(to menu: NSMenu, button: NSStatusBarButton?) {
+        guard environment.updatesConfigured else { return }
         self.button = button
         menu.addItem(item)
-        guard Bundle.main.object(forInfoDictionaryKey: "SUFeedURL") != nil,
-              Bundle.main.object(forInfoDictionaryKey: "SUPublicEDKey") != nil else {
-            item.isEnabled = false
-            return
-        }
         let controller = SPUStandardUpdaterController(startingUpdater: false, updaterDelegate: nil, userDriverDelegate: self)
         self.controller = controller
         item.target = controller
@@ -44,13 +51,13 @@ final class SoftwareUpdates: NSObject, @preconcurrency SPUStandardUserDriverDele
     private func showReminder(version: String?) {
         item.title = version.map { "Update Available · \($0)…" } ?? "Check for Updates…"
         button?.image = MenuBarBrand.image(showsUpdate: version != nil)
-        let label = version.map { "Aves Daemon, version \($0) available" } ?? "Aves Daemon"
+        let label = environment.statusLabel + (version.map { " · Update \($0) available" } ?? "")
         button?.toolTip = label
         button?.setAccessibilityLabel(label)
     }
 }
 
-struct UpdateSettings: View {
+private struct UpdateSettings: View {
     let updater: SPUUpdater
     @State private var checks = false
     @State private var downloads = false
@@ -68,3 +75,11 @@ struct UpdateSettings: View {
         .onReceive(updater.publisher(for: \.automaticallyDownloadsUpdates)) { downloads = $0 }
     }
 }
+#else
+@MainActor
+struct SoftwareUpdates {
+    init(environment: AppEnvironment) {}
+    var settings: some View { EmptyView() }
+    func attach(to menu: NSMenu, button: NSStatusBarButton?) {}
+}
+#endif

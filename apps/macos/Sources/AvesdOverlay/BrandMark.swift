@@ -1,3 +1,4 @@
+import AvesdEnvironment
 import SwiftUI
 
 enum MenuBarBrand {
@@ -93,6 +94,7 @@ private struct FooterBird: Shape {
 }
 
 struct SidebarBrand: View {
+    let environment: AppEnvironment
     let showAbout: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -116,11 +118,11 @@ struct SidebarBrand: View {
             .padding(.vertical, 3)
             .contentShape(Rectangle())
         }
-        .help("About Aves Daemon · \(AboutView.version)")
+        .help("About \(environment.statusLabel)")
         .buttonStyle(.plain)
         .focused($focused)
-        .accessibilityLabel("About Aves Daemon")
-        .accessibilityValue(Text(verbatim: AboutView.version))
+        .accessibilityLabel("About \(environment.channel.appName)")
+        .accessibilityValue(Text(verbatim: environment.version))
         .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: active)
         .onHover { hovered = $0 }
         .onChange(of: active) { if $0 { nod() } }

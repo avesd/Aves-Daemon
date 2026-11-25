@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct SourceSettings: View {
+    let localServerURL: URL
     @ObservedObject var preferences: DaemonPreferences
     @ObservedObject var polling: EventPolling
     @ObservedObject var region: EventRegion
@@ -39,9 +40,10 @@ struct SourceSettings: View {
                                 .help("Drag to reorder \(source.name)")
                             VStack(alignment: .leading, spacing: 3) {
                                 Text(source.name).font(.headline)
-                                Text(source.address).font(.system(.caption, design: .monospaced))
+                                let address = source.resolvedAddress(localServerURL: localServerURL)
+                                Text(address).font(.system(.caption, design: .monospaced))
                                     .foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
-                                    .help(source.address)
+                                    .help(address)
                                 Text(status(of: source))
                                     .font(.caption).foregroundStyle(.secondary)
                             }
@@ -128,7 +130,7 @@ private struct SourceEditor: View {
                     Text("The app appends /v1/regions/{cell}/event to the base URL.")
                         .font(.callout).foregroundStyle(.secondary)
                 }
-                if !cleaned.address.isEmpty && cleaned.url == nil {
+                if !cleaned.address.isEmpty && cleaned.configuredURL == nil {
                     Text("Enter a valid HTTP or HTTPS URL.").foregroundStyle(.red)
                 }
             }
@@ -147,7 +149,7 @@ private struct SourceEditor: View {
                     finish()
                 }
                 .keyboardShortcut(.defaultAction)
-                .disabled(cleaned.name.isEmpty || cleaned.url == nil)
+                .disabled(cleaned.name.isEmpty || cleaned.configuredURL == nil)
             }
         }
         .onAppear { editingName = true }

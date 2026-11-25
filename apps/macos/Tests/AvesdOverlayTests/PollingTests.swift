@@ -43,7 +43,7 @@ private actor Feeds {
             MurmurSource(name: $0, address: "https://\($0)/event", mode: .fixed)
         }
         let feeds = Feeds()
-        let polling = EventPolling(defaults: defaults, fetch: { try await feeds.fetch($0) })
+        let polling = EventPolling(defaults: defaults, localServerURL: URL(string: "http://localhost")!, fetch: { try await feeds.fetch($0) })
         var played: [Data] = []
         for _ in 0..<2 {
             let didPlay = await polling.poll(sources: { sources }, cell: { nil }) {

@@ -35,7 +35,7 @@ final class EventRegion: NSObject, ObservableObject, @preconcurrency CLLocationM
     private var awaitingAuthorization = false
     private static let maxAge: TimeInterval = 24 * 60 * 60
 
-    init(defaults: UserDefaults = .standard) {
+    init(defaults: UserDefaults) {
         self.defaults = defaults
         selection = defaults.data(forKey: selectionKey).flatMap {
             try? JSONDecoder().decode(RegionSelection.self, from: $0)

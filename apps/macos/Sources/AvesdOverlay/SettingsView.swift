@@ -1,3 +1,4 @@
+import AvesdEnvironment
 import SwiftUI
 
 enum SettingsPage: String, CaseIterable, Identifiable {
@@ -49,6 +50,7 @@ struct SettingsRow<Content: View>: View {
 }
 
 struct SettingsView: View {
+    let environment: AppEnvironment
     @ObservedObject var region: EventRegion
     @ObservedObject var preferences: DaemonPreferences
     @ObservedObject var polling: EventPolling
@@ -83,7 +85,8 @@ struct SettingsView: View {
                     }
                     switch navigation.page {
                     case .display: displaySettings
-                    case .sources: SourceSettings(preferences: preferences, polling: polling, region: region, localServer: localServer)
+                    case .sources: SourceSettings(localServerURL: environment.channel.localServerURL,
+                                                  preferences: preferences, polling: polling, region: region, localServer: localServer)
                     case .polling: PollingSettings(preferences: preferences)
                     case .maintenance: maintenanceSettings
                     }
@@ -97,12 +100,12 @@ struct SettingsView: View {
         }
         .tint(accent)
         .frame(minWidth: 640, minHeight: 420)
-        .sheet(isPresented: $showingAbout) { AboutView() }
+        .sheet(isPresented: $showingAbout) { AboutView(environment: environment) }
     }
 
     private var sidebar: some View {
         VStack(alignment: .leading, spacing: 24) {
-            SidebarBrand { showingAbout = true }
+            SidebarBrand(environment: environment) { showingAbout = true }
                 .id(brandPresentation)
                 .padding(.horizontal, 8)
             VStack(spacing: 4) {
@@ -180,12 +183,7 @@ struct SettingsView: View {
                 .disabled(cache == nil || clearing || (statistics?.isEmpty ?? true))
             }
             if let errorMessage { Text(errorMessage).foregroundStyle(.red) }
-            Text("Software updates").font(.headline)
-            if let updater = updates.updater {
-                UpdateSettings(updater: updater).toggleStyle(.switch)
-            } else {
-                Text("Software updates are unavailable in this build.").foregroundStyle(.secondary)
-            }
+            updates.settings
         }
         .task(id: revision) {
             do {

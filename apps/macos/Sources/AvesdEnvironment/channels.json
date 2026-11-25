@@ -1,0 +1,41 @@
+{
+  "release": {
+    "name": "Release",
+    "appName": "Aves Daemon",
+    "bundleIdentifier": "ai.avesd.daemon",
+    "badge": "",
+    "localPort": 28373,
+    "includesUpdater": true,
+    "allowsUsageStatistics": true,
+    "restartsOnRun": false,
+    "configuration": "release",
+    "scratchPath": ".build",
+    "appDirectory": ".build/distribution"
+  },
+  "local": {
+    "name": "Local",
+    "appName": "Aves Daemon Local",
+    "bundleIdentifier": "ai.avesd.daemon.local",
+    "badge": "L",
+    "localPort": 28375,
+    "includesUpdater": false,
+    "allowsUsageStatistics": false,
+    "restartsOnRun": true,
+    "configuration": "debug",
+    "scratchPath": ".build/local",
+    "appDirectory": ".build"
+  },
+  "test": {
+    "name": "Test",
+    "appName": "Aves Daemon Test",
+    "bundleIdentifier": "ai.avesd.daemon.test",
+    "badge": "T",
+    "localPort": 28378,
+    "includesUpdater": false,
+    "allowsUsageStatistics": false,
+    "restartsOnRun": false,
+    "configuration": "release",
+    "scratchPath": ".build/test",
+    "appDirectory": ".build"
+  }
+}

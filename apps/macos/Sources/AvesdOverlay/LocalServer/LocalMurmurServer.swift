@@ -19,9 +19,7 @@ final class LocalMurmurServer: ObservableObject {
     private let onReady: () -> Void
     private var listener: LoopbackHTTPListener?
 
-    init(port: UInt16 = MurmurSource.localPort,
-         database: URL = URL.applicationSupportDirectory.appending(path: "ai.avesd.daemon/local-server/events.sqlite"),
-         credential: @escaping (Bool) throws -> String = LocalServerToken.value(reset:),
+    init(port: UInt16, database: URL, credential: @escaping (Bool) throws -> String,
          allowsTrigger: @escaping () -> Bool, trigger: @escaping (String, Data) -> EventPolling.TriggerResult,
          onReady: @escaping () -> Void) {
         self.port = port

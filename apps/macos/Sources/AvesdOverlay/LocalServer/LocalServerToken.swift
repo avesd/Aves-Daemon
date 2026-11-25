@@ -1,14 +1,16 @@
 import Foundation
 import Security
 
-enum LocalServerToken {
-    private static var item: [String: Any] {
+struct LocalServerToken {
+    let service: String
+
+    private var item: [String: Any] {
         [kSecClass as String: kSecClassGenericPassword,
-         kSecAttrService as String: "ai.avesd.daemon.local-server",
+         kSecAttrService as String: service,
          kSecAttrAccount as String: "api-token"]
     }
 
-    static func value(reset: Bool) throws -> String {
+    func value(reset: Bool) throws -> String {
         var query = item
         query[kSecReturnData as String] = true
         var result: CFTypeRef?
@@ -29,7 +31,7 @@ enum LocalServerToken {
         let saved: OSStatus
         if status == errSecItemNotFound {
             saved = SecItemAdd(item.merging(update) { _, new in new } as CFDictionary, nil)
-            if saved == errSecDuplicateItem && !reset { return try Self.value(reset: false) }
+            if saved == errSecDuplicateItem && !reset { return try self.value(reset: false) }
         } else {
             saved = SecItemUpdate(item as CFDictionary, update as CFDictionary)
         }
@@ -37,7 +39,7 @@ enum LocalServerToken {
         return value
     }
 
-    private static func keychainError(_ status: OSStatus) -> NSError {
+    private func keychainError(_ status: OSStatus) -> NSError {
         NSError(domain: NSOSStatusErrorDomain, code: Int(status),
                 userInfo: [NSLocalizedDescriptionKey: SecCopyErrorMessageString(status, nil) as String? ?? "Keychain error \(status)"])
     }

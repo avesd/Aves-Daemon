@@ -1,3 +1,4 @@
+import AvesdEnvironment
 import Combine
 import SwiftUI
 
@@ -22,26 +23,29 @@ final class OverlayPanel: NSPanel {
 
 @MainActor
 final class OverlayApp: NSObject, NSApplicationDelegate {
+    private let environment: AppEnvironment
     private let state = OverlaySession()
-    private let updates = SoftwareUpdates()
-    private let region = EventRegion()
-    private let preferences = DaemonPreferences()
-    private let eventPolling = EventPolling()
+    private let updates: SoftwareUpdates
+    private let region: EventRegion
+    private let preferences: DaemonPreferences
+    private let eventPolling: EventPolling
     private let navigation = SettingsNavigation()
-    private lazy var localServer = LocalMurmurServer(allowsTrigger: { [weak self] in
-        self?.preferences.allowsTriggers == true
-    }, trigger: { [weak self] id, event in
-        guard let self else { return .unavailable }
-        return eventPolling.trigger(id: id, data: event) { showOverlay(.event($0)) }
-    }, onReady: { [weak self] in self?.preferences.addLocalSourceIfNeeded() })
+    private lazy var localServer = LocalMurmurServer(
+        port: environment.channel.localPort,
+        database: environment.supportDirectory.appending(path: "local-server/events.sqlite"),
+        credential: LocalServerToken(service: environment.localTokenService).value(reset:),
+        allowsTrigger: { [weak self] in self?.preferences.allowsTriggers == true },
+        trigger: { [weak self] id, event in
+            guard let self else { return .unavailable }
+            return eventPolling.trigger(id: id, data: event) { showOverlay(.event($0)) }
+        },
+        onReady: { [weak self] in self?.preferences.addLocalSourceIfNeeded() }
+    )
     private var serverSubscription: AnyCancellable?
     private var scheduleSubscription: AnyCancellable?
     private let panel = OverlayPanel(size: OverlayLayout.panelSize)
     private lazy var host = NSHostingView(rootView: OverlayView(state: state))
-    private let cache = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first.map {
-        AirlineLogoCache(directory: $0.appendingPathComponent(Bundle.main.bundleIdentifier ?? "ai.avesd.daemon")
-            .appendingPathComponent("airline-logos"))
-    }
+    private let cache: AirlineLogoCache?
     private var statusItem: NSStatusItem?
     private var polling: Task<Void, Never>?
     private var playback: Task<Void, Never>?
@@ -50,14 +54,30 @@ final class OverlayApp: NSObject, NSApplicationDelegate {
     private var prefetchTask: Task<Void, Never>?
     private var settingsController: NSWindowController?
 
+    init(environment: AppEnvironment) {
+        self.environment = environment
+        let defaults = environment.preferences
+        region = EventRegion(defaults: defaults)
+        preferences = DaemonPreferences(defaults: defaults)
+        eventPolling = EventPolling(defaults: defaults, localServerURL: environment.channel.localServerURL)
+        updates = SoftwareUpdates(environment: environment)
+        cache = environment.cachesDirectory.map { AirlineLogoCache(directory: $0.appending(path: "airline-logos")) }
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         host.sizingOptions = []
         panel.contentView = host
         panel.ignoresMouseEvents = true
-        let status = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        let channel = environment.channel
+        let status = NSStatusBar.system.statusItem(withLength: channel.badge.isEmpty ? NSStatusItem.squareLength : NSStatusItem.variableLength)
         status.button?.image = MenuBarBrand.image(showsUpdate: false)
-        status.button?.toolTip = "Aves Daemon"
-        status.button?.setAccessibilityLabel("Aves Daemon")
+        if !channel.badge.isEmpty {
+            status.button?.imagePosition = .imageLeading
+            status.button?.font = .systemFont(ofSize: 10, weight: .semibold)
+            status.button?.title = channel.badge
+        }
+        status.button?.toolTip = environment.statusLabel
+        status.button?.setAccessibilityLabel(environment.statusLabel)
         let menu = NSMenu()
         let locationItem = menu.addItem(withTitle: "Use My Location for Nearby Flights",
                                         action: #selector(useMyLocation), keyEquivalent: "")
@@ -65,7 +85,7 @@ final class OverlayApp: NSObject, NSApplicationDelegate {
         menu.addItem(withTitle: "Settings…", action: #selector(showSettings), keyEquivalent: ",").target = self
         updates.attach(to: menu, button: status.button)
         menu.addItem(.separator())
-        menu.addItem(withTitle: "Quit Aves Daemon", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        menu.addItem(withTitle: "Quit \(channel.appName)", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         status.menu = menu
         statusItem = status
         if preferences.usesRegion { region.refreshIfNeeded() }
@@ -122,15 +142,15 @@ final class OverlayApp: NSObject, NSApplicationDelegate {
         return true
     }
 
-    @objc private func showSettings() {
+    @objc func showSettings() {
         if settingsController == nil {
-            let settings = SettingsView(region: region, preferences: preferences, polling: eventPolling, localServer: localServer,
+            let settings = SettingsView(environment: environment, region: region, preferences: preferences, polling: eventPolling, localServer: localServer,
                                         updates: updates, cache: cache,
                                         preview: { [weak self] in _ = self?.showOverlay(.preview) },
                                         changePrefetch: { [weak self] enabled in self?.setPrefetch(enabled) },
                                         clearCache: { [weak self] in try await self?.clearLogos() }, navigation: navigation)
             let window = NSWindow(contentViewController: NSHostingController(rootView: settings))
-            window.title = "Aves Daemon Settings"
+            window.title = "\(environment.channel.appName) Settings"
             window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
             window.setContentSize(NSSize(width: 780, height: 530))
             window.isReleasedWhenClosed = false
@@ -217,9 +237,10 @@ private extension Duration {
     }
 }
 
-let app = NSApplication.shared
-app.setActivationPolicy(.accessory)
-BrandTypography.registerBundledFonts()
-let delegate = OverlayApp()
-app.delegate = delegate
-app.run()
+private let environment = AppEnvironment()
+do {
+    try runOverlayApplication(environment: environment)
+} catch {
+    NSLog("Could not start %@: %@", environment.channel.appName, error.localizedDescription)
+    exit(EXIT_FAILURE)
+}
