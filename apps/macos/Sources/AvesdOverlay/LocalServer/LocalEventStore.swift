@@ -2,40 +2,54 @@ import Foundation
 import SQLite3
 
 actor LocalEventStore {
-    private final class Database {
-        let handle: OpaquePointer
-
-        init(url: URL) throws {
-            try FileManager.default.createDirectory(at: url.deletingLastPathComponent(),
-                                                    withIntermediateDirectories: true,
-                                                    attributes: [.posixPermissions: 0o700])
-            var opened: OpaquePointer?
-            guard sqlite3_open(url.path, &opened) == SQLITE_OK, let opened else {
-                sqlite3_close(opened)
-                throw StoreError.database
-            }
-            handle = opened
-        }
-
-        deinit { sqlite3_close(handle) }
-    }
-
-    private enum StoreError: Error { case database }
     private let url: URL
-    private var database: Database?
-    private let transient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+    private var database: EventDatabase?
 
     init(url: URL) { self.url = url }
 
-    private func statement<T>(_ sql: String, _ perform: (OpaquePointer) throws -> T) throws -> T {
-        if database == nil {
-            let db = try Database(url: url)
-            let schema = "CREATE TABLE IF NOT EXISTS events (id TEXT PRIMARY KEY, expires REAL NOT NULL, event BLOB NOT NULL)"
-            guard sqlite3_exec(db.handle, schema, nil, nil, nil) == SQLITE_OK else { throw StoreError.database }
-            database = db
+    private func connection() throws -> EventDatabase {
+        if let database { return database }
+        let database = try EventDatabase(url: url)
+        self.database = database
+        return database
+    }
+
+    func put(id: String, event: Data, expires: Date?, now: Date = .now) throws -> Bool {
+        try connection().put(id: id, event: event, expires: expires, now: now)
+    }
+
+    func candidate(excluding played: [String], now: Date = .now) throws -> Data? {
+        try connection().candidate(excluding: played, now: now)
+    }
+}
+
+private final class EventDatabase {
+    private enum StoreError: Error { case database }
+    private let handle: OpaquePointer
+    private let transient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+
+    init(url: URL) throws {
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(),
+                                                withIntermediateDirectories: true,
+                                                attributes: [.posixPermissions: 0o700])
+        var opened: OpaquePointer?
+        guard sqlite3_open(url.path, &opened) == SQLITE_OK, let opened else {
+            sqlite3_close(opened)
+            throw StoreError.database
         }
+        let schema = "CREATE TABLE IF NOT EXISTS events (id TEXT PRIMARY KEY, expires REAL NOT NULL, event BLOB NOT NULL)"
+        guard sqlite3_exec(opened, schema, nil, nil, nil) == SQLITE_OK else {
+            sqlite3_close(opened)
+            throw StoreError.database
+        }
+        handle = opened
+    }
+
+    deinit { sqlite3_close(handle) }
+
+    private func statement<T>(_ sql: String, _ perform: (OpaquePointer) throws -> T) throws -> T {
         var statement: OpaquePointer?
-        guard sqlite3_prepare_v2(database?.handle, sql, -1, &statement, nil) == SQLITE_OK, let statement else {
+        guard sqlite3_prepare_v2(handle, sql, -1, &statement, nil) == SQLITE_OK, let statement else {
             throw StoreError.database
         }
         defer { sqlite3_finalize(statement) }
@@ -49,7 +63,7 @@ actor LocalEventStore {
         }
     }
 
-    func put(id: String, event: Data, expires: Date?, now: Date = .now) throws -> Bool {
+    func put(id: String, event: Data, expires: Date?, now: Date) throws -> Bool {
         try removeExpired(at: now)
         let created = try statement("SELECT 1 FROM events WHERE id = ?") { query in
             sqlite3_bind_text(query, 1, id, Int32(id.utf8.count), transient)
@@ -76,7 +90,7 @@ actor LocalEventStore {
         return created
     }
 
-    func candidate(excluding played: [String], now: Date = .now) throws -> Data? {
+    func candidate(excluding played: [String], now: Date) throws -> Data? {
         try removeExpired(at: now)
         let parameters = Array(repeating: "?", count: played.count).joined(separator: ",")
         let filter = played.isEmpty ? "" : " WHERE id NOT IN (\(parameters))"
