@@ -1,6 +1,6 @@
 #!/bin/bash
 set -euo pipefail
-app="apps/macos/.build/distribution/Aves Daemon.app"
+app="apps/macos/$(make -s -C apps/macos app-path CHANNEL=release)"
 case "${MACOS_SIGNING_MODE:-developer-id}" in
     ad-hoc)
         codesign --force --sign - "$app"

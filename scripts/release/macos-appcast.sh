@@ -2,12 +2,12 @@
 set -euo pipefail
 : "${SPARKLE_PRIVATE_KEY:?}" "${VERSION:?}"
 
-app="apps/macos/.build/distribution/Aves Daemon.app"
+app="apps/macos/$(make -s -C apps/macos app-path CHANNEL=release)"
 plist="$app/Contents/Info.plist"
 test "$(plutil -extract CFBundleShortVersionString raw "$plist")" = "$VERSION"
 lipo "$app/Contents/MacOS/AvesdOverlay" -verify_arch arm64
 lipo "$app/Contents/Frameworks/libavesd_ffi.dylib" -verify_arch arm64
-base="Aves-Daemon-$VERSION-macos-arm64"
+base="Aves-Daemon-macos"
 archive="dist/$base.zip"
 prefix="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/download/v$VERSION/"
 mkdir -p dist
@@ -19,7 +19,7 @@ awk -v heading="## $VERSION" '
 ' apps/macos/.changeset/history/*/CHANGELOG.md > dist/notes.md
 test -s dist/notes.md
 cp dist/notes.md "dist/$base.md"
-tools=apps/macos/.build/artifacts/macos/Sparkle/bin
+tools="apps/macos/$(make -s -C apps/macos sparkle-tools-path CHANNEL=release)"
 printf '%s' "$SPARKLE_PRIVATE_KEY" | "$tools/generate_appcast" --ed-key-file - \
     --download-url-prefix "$prefix" --embed-release-notes --maximum-deltas 0 dist
 unset SPARKLE_PRIVATE_KEY

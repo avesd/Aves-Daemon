@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 tag="v$VERSION"
-archive="dist/Aves-Daemon-$VERSION-macos-arm64.zip"
+archive="dist/Aves-Daemon-macos.zip"
 for asset in "$archive" dist/appcast.xml dist/notes.md; do test -s "$asset"; done
 
 if git show-ref --verify --quiet "refs/tags/$tag"; then
