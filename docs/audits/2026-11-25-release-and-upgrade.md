@@ -1,0 +1,52 @@
+# Aves Daemon macOS release audit — 2026-11-25
+
+## Summary
+
+The joint Aves Daemon and Aves Daemon Service release audit found two defects in the macOS release tooling and one in local playback after upgrading a pre-channel build. An interrupted version application can leave the manifest ahead of its history and a retry can increment the build twice. The non-interactive changeset command can change dollar amounts in the saved release notes. On a source-built installation, moving the built-in queue to its new port can cause a pending note to expire before playback.
+
+## Scope and Method
+
+Reviewed the desktop worktree at `a4b82e7` from changeset creation through version application, quarterly history, appcast notes and GitHub release notes. Also traced upgrades of an installation built from commit `5249800` with the same Release bundle identity. The service worktree at `4343251` owns a separate copy of the release tooling. Both implementations were exercised through their own Make targets. The earlier desktop audits covered event polling and playback. [Desktop release contract](../../README.md#L75) · [Publication procedure](../macos-release.md#L82) · [Service release entry points](https://github.com/avesd/Aves-Daemon-Service/blob/43432519cd3ba4beeec8e132021e4a956e3a814c/make/release.mk#L4)
+
+## Findings
+
+### AUDIT-001 — An interrupted apply leaves a partial release that can be bumped twice
+
+- **Class, severity and confidence** Defect, P2, high confidence.
+- **Evidence and decision boundary** The client contract increments the build once per applied release and pairs the version with its quarterly changelog and ledger. The applicator takes a directory lock, saves the original file contents in process memory, writes the version and build, then writes history and removes consumed notes. Exception handling restores the originals while the process is running. Process termination can leave the lock and completed writes on disk. [Build contract](../../README.md#L78) · [Lock lifetime](../../scripts/release/release-apply.ts#L22) · [Original contents](../../scripts/release/release-apply.ts#L106) · [Manifest write](../../scripts/release/version.ts#L66) · [Write and rollback order](../../scripts/release/release-apply.ts#L131)
+- **Behavior and impact** A single patch was prepared against `0.1.0`, build 2. Terminating the apply process just after its manifest write left `0.1.1`, build 3, with the note still pending and the ledger still ending at `0.1.0`. A direct retry failed with `EEXIST`. Removing just the abandoned lock in the test copy and retrying applied the same note as `0.1.3`, build 4. The ledger then cited an unrecorded predecessor, `0.1.1`. The version allocator skips the reserved `0.1.2`. Recovery requires reconciling the partial writes before another application. [Version allocation](../../scripts/release/version.ts#L45) · [Ledger predecessor](../../scripts/release/release-apply.ts#L77)
+- **Remediation and verification** Record enough of the original or intended release on disk before the first mutation to recover the same plan after its writer exits. Preserve exclusion of an active writer. Interrupt after the manifest, after each history write and during note removal. A retry should finish with one build increment, one ledger entry with the original predecessor, and the note consumed exactly once.
+
+### AUDIT-002 — Dollar amounts can change when creating a release note
+
+- **Class, severity and confidence** Defect, P3, high confidence.
+- **Evidence and decision boundary** The documented Make interface accepts the change summary as operator-supplied text. The release Makefile expands that text as a Make expression when passing it to Node. The note writer and quarterly changelog retain the resulting string. The appcast builder embeds the extracted notes and the publisher uses them as the GitHub release description. [Command contract](../../README.md#L75) · [Make export and summary check](../../make/release.mk#L6) · [Changeset writer](../../scripts/release/release-notes.ts#L95) · [Changelog writer](../../scripts/release/release-apply.ts#L73) · [Appcast notes](../../scripts/release/macos-appcast.sh#L15) · [GitHub release notes](../../scripts/release/publish-macos.sh#L20)
+- **Behavior and impact** The command received the literal summary `Document the $10-to-$25 price range.` in a single argument. Both the new note and its final changelog entry read `Document the 0-to-5 price range.` Make interpreted `$1` and `$2` as variable references. The commands succeeded, so the incorrect text can reach both release channels. An operator can correct the pending note before applying it. Interactive text entered directly into Node bypasses this Make expansion.
+- **Remediation and verification** Export the literal value with `$(value SUMMARY)` and use the same raw value for the desktop target-default check. Verify that a summary containing two dollar amounts survives changeset creation, version application and release-note extraction verbatim. Also exercise an ordinary summary and interactive creation without a summary argument.
+
+### AUDIT-003 - A port change can hide a pending note when upgrading a local build
+
+- **Class, severity and confidence** Defect, P3, high confidence. This affects installations built from the pre-channel source that use the Release bundle ID and have recent local playback history. The number of such installations is unknown.
+- **Evidence and contract** The client retains prepared candidates and remembers played IDs across launches. Source commit `5249800`, which prepared 0.1.0, used port 47831. The current Release uses the same bundle ID, queue location and built-in source ID with port 28373. It loads the saved history, then looks up the IDs to send using a key that includes the new port. [Queue persistence](../../apps/macos/README.md#L48) · [Playback contract](../../apps/macos/README.md#L95) · [Earlier source and port](https://github.com/avesd/Aves-Daemon/blob/5249800dda58ac6f2be0352a06bfef06468806cd/apps/macos/Sources/AvesdOverlay/DaemonPreferences.swift#L14) · [Release profile](../../apps/macos/Sources/AvesdEnvironment/channels.json#L5) · [Local endpoint](../../apps/macos/Sources/AvesdOverlay/DaemonPreferences.swift#L29) · [Queue location](../../apps/macos/Sources/AvesdOverlay/main.swift#L34) · [History key](../../apps/macos/Sources/AvesdOverlay/EventPolling.swift#L22) · [Request exclusions](../../apps/macos/Sources/AvesdOverlay/EventPolling.swift#L87)
+- **Behavior and verification** An offline Swift check prepared two notes in temporary SQLite storage. The earlier poller played the newer note and saved its real source-history entry. Five simulated minutes later, the current poller using the old port as a control sent that ID and played the older note. Using the new port with a copy of the same state, it sent no IDs, received the newer note again and suppressed it locally. It learned the ID under the new port, but the older note reached its explicit seven-minute deadline before the next five-minute poll. That poll returned empty. This exercised the two polling implementations and the current store through a local fetch substitute. [Duplicate suppression](../../apps/macos/Sources/AvesdOverlay/EventPolling.swift#L113) · [Source attribution](../../apps/macos/Sources/AvesdOverlay/EventPolling.swift#L122) · [SQLite selection](../../apps/macos/Sources/AvesdOverlay/LocalServer/LocalEventStore.swift#L93)
+- **Remediation** When the Release channel reads the built-in queue's history, migrate recent IDs from its known old port into the current scope. Preserve their original timestamps and any newer entries already present. Verify that the first upgraded poll plays the pending note, that repeating the migration is harmless, and that other configured sources receive only their own history.
+
+## Verification Record
+
+- Copied the release sources, current manifests, quarterly histories, Makefiles and package manifests into disposable directories. Used the pinned Node v26.12.1 and installed dependencies. In both repositories, a normal dry run preserved the manifest and applying the same completed release twice added one version. In the desktop control, the final state was `0.1.1`, build 3.
+- Used a temporary Node preload to deliver `SIGTERM` immediately after the actual first manifest write returned. Inspected the interrupted files, retried, and tried removing only the abandoned lock in the disposable copy. The service's separate implementation also stranded a shared patch between two manifest writes. [Service write order](https://github.com/avesd/Aves-Daemon-Service/blob/43432519cd3ba4beeec8e132021e4a956e3a814c/packages/scripts/script/release/release-apply.ts#L172)
+- Passed the currency summary directly as a Make argument to exclude shell interpolation. Both repositories changed the same two amounts. In each test copy, using the raw Make value preserved the original text in a newly generated note.
+- Ran the repository's ad-hoc signing branch on a temporary copy of an existing macOS Release build. Signing and the script's strict, recursive signature check passed. Developer ID signing, Apple notarization, GitHub publication, and installation through a live Sparkle feed were outside this verification. [Ad-hoc signing and verification](../../scripts/release/sign-macos.sh#L5)
+- Verified the old and new pollers against temporary SQLite state with synthetic times and transport. A read-only GitHub Release lookup returned no entry for `v0.1.0` at the time of the audit. The upgrade finding covers builds made from the earlier source.
+
+## Suggested Remediation Order
+
+1. `AUDIT-001` restores the version and history invariant across interrupted applies.
+2. `AUDIT-003` preserves pending local notes across the channel transition.
+3. `AUDIT-002` preserves operator-supplied text through the release channels.
+
+## Follow-up Checklist
+
+- [ ] `AUDIT-001` Recover an interrupted patch with one build increment and one matching changelog and ledger entry.
+- [ ] `AUDIT-002` Preserve literal dollar amounts from the Make argument to the release notes.
+- [ ] `AUDIT-003` Retain the built-in source exclusions on the first poll after the port change.
