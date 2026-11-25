@@ -32,13 +32,38 @@ The native renderer reads each frame through the [C header](crates/avesd-ffi/inc
 
 Use the Node version in `.nvmrc` and the pnpm version in `package.json`. Run
 `pnpm install --frozen-lockfile` at the repository root. Run `make validate`
-to check that Rust and the C header agree on drawing commands and colors.
-On macOS the same command builds the native test dependencies and checks
-multi-source polling and authenticated playback through the local server.
+to test maintenance updates and check that Rust and the C header agree on drawing commands
+and colors. On macOS it also tests multi-source polling, authenticated playback, and usage
+analytics against local servers.
 
 Run `make run-macos` to build and restart Aves Daemon Local. Use `make build-macos-test`
 for a separate, optimized test app. All three [macOS build channels](apps/macos/README.md#build-channels)
 can run side by side. Run `make` to list the available targets.
+
+## Maintenance
+
+Run `make update-preview` to see candidate Swift package versions, GitHub Action commit SHAs,
+the Rust compiler, and the CI Xcode version. It reads upstream metadata and leaves the worktree intact.
+
+Run `make update-all` on macOS with the project Node and pnpm versions, installed Node
+dependencies, rustup, and Xcode with Swift 6.2 or newer. It runs these targets in order.
+
+| Target | Effect |
+| --- | --- |
+| `update-toolchains` | Check the selected local Swift toolchain, install the current stable Rust compiler and rustfmt with rustup, and record it in `rust-toolchain.toml`. Refresh `.xcode-version` from the default Xcode for the macOS runner named in the release workflow. |
+| `update-dependencies` | Resolve the latest stable PostHog and Sparkle releases, including Sparkle's published ZIP checksum. Update `Package.swift` and `Package.resolved` after SwiftPM succeeds. Run `cargo update` within the workspace's manifest constraints and `pnpm update --latest` for Node dependencies. |
+| `update-actions` | Resolve workflow actions pinned to versions or commit SHAs to their latest stable releases. Write full commit SHAs and refresh existing version comments. Set `GH_TOKEN` if you need authenticated GitHub API rate limits. |
+| `validate`, `build-macos-release` | Run the maintenance, ABI, and native tests, then build the Release app with its updater. |
+
+Rustup selects the pinned compiler in this repository. The workspace's `rust-version` declares
+its minimum supported Rust version. On macOS the local build uses the installed Xcode selected
+by `DEVELOPER_DIR` or `xcode-select`. The release runner selects the Xcode in `.xcode-version`.
+To choose a different Xcode for one local command, prefix it with
+`DEVELOPER_DIR=/path/to/Xcode.app/Contents/Developer`.
+
+The shared `make organize update-all iud` sequence also formats the Rust workspace first
+and finishes with a pnpm install, in-range update, and deduplication. Each target stops at
+the first error. Earlier successful steps remain available for review and retry.
 
 ## Credits
 
