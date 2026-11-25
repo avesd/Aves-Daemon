@@ -56,6 +56,7 @@ struct SettingsView: View {
     @ObservedObject var polling: EventPolling
     let localServer: LocalMurmurServer
     let updates: SoftwareUpdates
+    @ObservedObject var analytics: UsageAnalytics
     let cache: AirlineLogoCache?
     let preview: () -> Void
     let changePrefetch: (Bool) -> Void
@@ -184,6 +185,15 @@ struct SettingsView: View {
             }
             if let errorMessage { Text(errorMessage).foregroundStyle(.red) }
             updates.settings
+            if analytics.isAvailable {
+                Text("Usage statistics").font(.headline)
+                Toggle("Share anonymous usage statistics", isOn: Binding(
+                    get: { analytics.isEnabled }, set: { analytics.setEnabled($0) }
+                ))
+                .toggleStyle(.switch)
+                Text("Send app launches, overlay displays, and detail expansions to PostHog.")
+                    .font(.callout).foregroundStyle(.secondary)
+            }
         }
         .task(id: revision) {
             do {

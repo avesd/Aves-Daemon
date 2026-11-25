@@ -23,15 +23,6 @@ struct OverlayFrame {
     var icon: [AvesdCommand] = []
     var scenery: [AvesdCommand] = []
 
-    mutating func update(_ source: AvesdOverlayFrame, changes: AvesdFrameChanges) {
-        panel = source.panel
-        if changes.icon {
-            icon = Array(UnsafeBufferPointer(start: source.icon, count: source.icon_count))
-        }
-        if changes.scenery {
-            scenery = Array(UnsafeBufferPointer(start: source.scenery, count: source.scenery_count))
-        }
-    }
     func fieldOpacity(_ index: Int) -> Double {
         switch index {
         case 0: panel.fields.0
@@ -43,10 +34,21 @@ struct OverlayFrame {
 }
 
 private final class PlaybackHandle {
-    let value: OpaquePointer
+    private let pointer: OpaquePointer
+    private(set) var frame = OverlayFrame()
     let content: OverlayContent
 
-    init?(_ pointer: OpaquePointer?) {
+    init?(_ input: OverlaySession.Input, reduced: Bool, duration: TimeInterval, seed: UInt64) {
+        let options = AvesdOverlayOptions(seed: seed, hold_ms: duration * 1000, width: OverlayLayout.panelSize.width,
+                                          anchor_x: OverlayLayout.markCenter.x, reduced: reduced)
+        let pointer: OpaquePointer?
+        switch input {
+        case .preview: pointer = avesd_overlay_preview(UInt32(AVESD_PREVIEW_FLYOVER), options)
+        case .event(let data, _):
+            pointer = data.withUnsafeBytes {
+                avesd_overlay_create($0.bindMemory(to: UInt8.self).baseAddress, $0.count, options)
+            }
+        }
         guard let pointer else { return nil }
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
@@ -55,17 +57,41 @@ private final class PlaybackHandle {
             avesd_overlay_destroy(pointer)
             return nil
         }
-        self.value = pointer
+        self.pointer = pointer
         self.content = content
+        copyFrame(changes: AvesdFrameChanges(panel: true, icon: true, scenery: true))
     }
 
-    deinit { avesd_overlay_destroy(value) }
+    deinit { avesd_overlay_destroy(pointer) }
+
+    func advance(elapsed: TimeInterval, inside: Bool) -> OverlayFrame? {
+        let changes = avesd_overlay_advance_changes(pointer, elapsed * 1000, inside)
+        guard changes.panel || changes.icon || changes.scenery else { return nil }
+        copyFrame(changes: changes)
+        return frame
+    }
+
+    private func copyFrame(changes: AvesdFrameChanges) {
+        let source = avesd_overlay_frame(pointer)
+        frame.panel = source.panel
+        if changes.icon {
+            frame.icon = Array(UnsafeBufferPointer(start: source.icon, count: source.icon_count))
+        }
+        if changes.scenery {
+            frame.scenery = Array(UnsafeBufferPointer(start: source.scenery, count: source.scenery_count))
+        }
+    }
 }
 
 @MainActor
 final class OverlaySession: ObservableObject {
-    enum Input { case preview, event(Data) }
+    enum Input {
+        enum Source: String { case poll, localTrigger = "local_trigger" }
+        case preview
+        case event(Data, source: Source = .poll)
+    }
     private var handle: PlaybackHandle?
+    var onFirstExpansion: (() -> Void)?
     @Published private(set) var frame = OverlayFrame()
     @Published private(set) var logo: NSImage?
     var content: OverlayContent? { handle?.content }
@@ -74,20 +100,11 @@ final class OverlaySession: ObservableObject {
 
     @discardableResult
     func reset(_ input: Input, reduced: Bool, duration: TimeInterval, seed: UInt64 = .random(in: .min ... .max)) -> Bool {
-        let options = AvesdOverlayOptions(seed: seed, hold_ms: duration * 1000, width: OverlayLayout.panelSize.width,
-                                          anchor_x: OverlayLayout.markCenter.x, reduced: reduced)
-        let pointer: OpaquePointer?
-        switch input {
-        case .preview: pointer = avesd_overlay_preview(UInt32(AVESD_PREVIEW_FLYOVER), options)
-        case .event(let data):
-            pointer = data.withUnsafeBytes {
-                avesd_overlay_create($0.bindMemory(to: UInt8.self).baseAddress, $0.count, options)
-            }
-        }
-        guard let next = PlaybackHandle(pointer) else { return false }
+        guard let next = PlaybackHandle(input, reduced: reduced, duration: duration, seed: seed) else { return false }
         handle = next
+        onFirstExpansion = nil
         logo = nil
-        frame.update(avesd_overlay_frame(next.value), changes: AvesdFrameChanges(panel: true, icon: true, scenery: true))
+        frame = next.frame
         return true
     }
 
@@ -100,9 +117,12 @@ final class OverlaySession: ObservableObject {
         guard let handle else { return false }
         let height = frame.panel.expansion > 0 ? cardHeight : OverlayLayout.headerHeight
         let bounds = CGRect(origin: OverlayLayout.origin, size: CGSize(width: OverlayLayout.width, height: height))
-        let changes = avesd_overlay_advance_changes(handle.value, elapsed * 1000, bounds.contains(pointer))
-        if changes.panel || changes.icon || changes.scenery {
-            frame.update(avesd_overlay_frame(handle.value), changes: changes)
+        if let next = handle.advance(elapsed: elapsed, inside: bounds.contains(pointer)) {
+            frame = next
+            if next.panel.open_fraction > 0, let onFirstExpansion {
+                self.onFirstExpansion = nil
+                onFirstExpansion()
+            }
         }
         return frame.panel.alive
     }

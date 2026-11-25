@@ -25,6 +25,7 @@ final class OverlayPanel: NSPanel {
 final class OverlayApp: NSObject, NSApplicationDelegate {
     private let environment: AppEnvironment
     private let state = OverlaySession()
+    private let analytics: UsageAnalytics
     private let updates: SoftwareUpdates
     private let region: EventRegion
     private let preferences: DaemonPreferences
@@ -37,7 +38,7 @@ final class OverlayApp: NSObject, NSApplicationDelegate {
         allowsTrigger: { [weak self] in self?.preferences.allowsTriggers == true },
         trigger: { [weak self] id, event in
             guard let self else { return .unavailable }
-            return eventPolling.trigger(id: id, data: event) { showOverlay(.event($0)) }
+            return eventPolling.trigger(id: id, data: event) { showOverlay(.event($0, source: .localTrigger)) }
         },
         onReady: { [weak self] in self?.preferences.addLocalSourceIfNeeded() }
     )
@@ -60,6 +61,7 @@ final class OverlayApp: NSObject, NSApplicationDelegate {
         region = EventRegion(defaults: defaults)
         preferences = DaemonPreferences(defaults: defaults)
         eventPolling = EventPolling(defaults: defaults, localServerURL: environment.channel.localServerURL)
+        analytics = UsageAnalytics(isAvailable: environment.channel.allowsUsageStatistics, defaults: defaults)
         updates = SoftwareUpdates(environment: environment)
         cache = environment.cachesDirectory.map { AirlineLogoCache(directory: $0.appending(path: "airline-logos")) }
     }
@@ -88,6 +90,7 @@ final class OverlayApp: NSObject, NSApplicationDelegate {
         menu.addItem(withTitle: "Quit \(channel.appName)", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         status.menu = menu
         statusItem = status
+        analytics.appStarted()
         if preferences.usesRegion { region.refreshIfNeeded() }
         NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(didWake),
             name: NSWorkspace.didWakeNotification, object: nil)
@@ -145,7 +148,7 @@ final class OverlayApp: NSObject, NSApplicationDelegate {
     @objc func showSettings() {
         if settingsController == nil {
             let settings = SettingsView(environment: environment, region: region, preferences: preferences, polling: eventPolling, localServer: localServer,
-                                        updates: updates, cache: cache,
+                                        updates: updates, analytics: analytics, cache: cache,
                                         preview: { [weak self] in _ = self?.showOverlay(.preview) },
                                         changePrefetch: { [weak self] enabled in self?.setPrefetch(enabled) },
                                         clearCache: { [weak self] in try await self?.clearLogos() }, navigation: navigation)
@@ -200,6 +203,7 @@ final class OverlayApp: NSObject, NSApplicationDelegate {
         let frame = screen.visibleFrame
         panel.setFrameTopLeftPoint(NSPoint(x: frame.maxX - panel.frame.width, y: frame.maxY - 32))
         panel.orderFrontRegardless()
+        state.onFirstExpansion = analytics.overlayShown(input)
 
         if let slug = state.content?.airlineMark, let mark = AirlineMark(slug: slug), let cache {
             logoLookup = Task {

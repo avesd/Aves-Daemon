@@ -40,6 +40,7 @@ endif
 	mkdir -p "$(APP)/Contents/MacOS"
 	install -C -S -m 755 "$(SWIFT_BUILD)/$(CONFIGURATION)/AvesdOverlay" "$(APP)/Contents/MacOS/AvesdOverlay"
 	mkdir -p "$(APP)/Contents/Resources/Fonts"
+	rsync -a "$(SWIFT_BUILD)/$(CONFIGURATION)"/PostHog_*.bundle "$(APP)/Contents/Resources/"
 	rsync -rt --delete Sources/AvesdOverlay/Fonts/ "$(APP)/Contents/Resources/Fonts/"
 	node configure-bundle.ts "$(CHANNEL)" "$(APP)/Contents/Info.plist"
 

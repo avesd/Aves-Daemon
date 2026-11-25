@@ -12,7 +12,7 @@ Use the Node version in the root `.nvmrc` and run `pnpm install --frozen-lockfil
 
 Each macOS user can run one instance of each channel. Opening another copy of the same channel brings its settings forward. Hover over the menu bar item for the channel, version, and build number. Each channel has its own preferences, playback history, cache, local event database, and Keychain token. The ports spell the names on a telephone keypad.
 
-The [channel profiles](Sources/AvesdEnvironment/channels.json) define the bundle identities, ports, badges, build defaults, and availability of software updates. Make, SwiftPM, and the bundle configuration script use the selected profile when building the app. The [AvesdEnvironment module](Sources/AvesdEnvironment/AppEnvironment.swift) embeds the same profiles and selects one at startup by bundle ID. The standalone executable selects Local. The app passes that environment's URLs, preferences, and capabilities to the features that use them.
+The [channel profiles](Sources/AvesdEnvironment/channels.json) define the bundle identities, ports, badges, build defaults, and availability of software updates and usage statistics. Make, SwiftPM, and the bundle configuration script use the selected profile when building the app. The [AvesdEnvironment module](Sources/AvesdEnvironment/AppEnvironment.swift) embeds the same profiles and selects one at startup by bundle ID. The standalone executable selects Local. The app passes that environment's URLs, preferences, and capabilities to the features that use them.
 
 Run `make run-macos` from the repository root (or `make run` here) to rebuild and restart Local. To run an optimized Local build, use `make run-macos CONFIGURATION=release`. Test and Release use release optimization by default. Open their app bundles to run them alongside Local.
 
@@ -86,7 +86,13 @@ Use the persistent sidebar to switch between four pages. Changes take effect whi
 - **Display** lets you choose 3, 5, or 8 seconds and try that duration with **Preview Once**.
 - **Data sources** lists each source and its latest request result. Add a regional API base URL to use the selected area, or enter a complete fixed event URL. Edit a source to rename or remove it. Turn off every source to pause polling playback. On upgrade, an existing custom feed becomes the sole enabled fixed source. New installations start with the regional Murmur service.
 - **Rhythm** controls the base interval and optional increase after playback. Defaults are 5 minutes initially, 5 minutes per increase, and a 15-minute maximum. A round without playback restores the base interval. Fixed mode always uses the base interval. Changes to the schedule or source list restart the wait.
-- **Maintenance** contains the airline logo cache. Release builds also offer software updates when configured.
+- **Maintenance** contains the airline logo cache. Release builds also offer anonymous usage statistics and, when configured, software updates.
+
+**Share anonymous usage statistics** is off by default. Turning it on starts PostHog US for the Release app. It records `app_started` on subsequent launches, `overlay_shown` when a panel appears, and `overlay_expanded` the first time its details open during that playback. The overlay events include the kind of content and its source (`preview`, `poll`, or `local_trigger`).
+
+Events use a random installation ID and include the app version and build. Location, source URLs, event IDs, and displayed text stay out of analytics. Turning the switch off stops new events immediately. Previously queued events may finish sending. Local and Test builds keep statistics disabled.
+
+Each round requests eligible sources concurrently. At most one event plays. When several sources offer events, selection starts after the last source that played. A source's retry delay applies only to that source. Playback IDs are remembered for three hours across launches. A source receives only IDs it has supplied.
 
 The interval preview on **Rhythm** shows the base wait and the next two waits after consecutive plays. The sidebar pairs the bird with the Aves Daemon wordmark. The bird traces in when the window opens. Hovering the brand or focusing it with the keyboard slides the D and fades it into a lowercase d. The bird nods and morphs to the standard mark. Activating the brand opens the About sheet with the product website, release version, and build number. Reduce Motion switches directly between the two brand states. Settings persist across launches. The **Airline logos** section controls preloading, shows the number and size of cached marks, and can clear those marks. Downloading an individual flight's logo on demand still works with preloading off.
 

@@ -22,12 +22,13 @@ let updaterTargets: [Target] = channel.includesUpdater ? [
 let package = Package(
     name: "AvesdOverlay",
     platforms: [.macOS(.v13)],
+    dependencies: [.package(url: "https://github.com/PostHog/posthog-ios.git", exact: "3.98.2")],
     targets: updaterTargets + [
         .target(name: "AvesdEnvironment", resources: [.embedInCode("channels.json")]),
         .systemLibrary(name: "CAvesdCore"),
         .executableTarget(
             name: "AvesdOverlay",
-            dependencies: ["AvesdEnvironment", "CAvesdCore"]
+            dependencies: ["AvesdEnvironment", "CAvesdCore", .product(name: "PostHog", package: "posthog-ios")]
                 + (channel.includesUpdater ? ["Sparkle"] : []),
             resources: [.copy("Fonts")],
             linkerSettings: [
@@ -40,7 +41,7 @@ let package = Package(
         ),
         .testTarget(
             name: "AvesdOverlayTests",
-            dependencies: ["AvesdEnvironment", "AvesdOverlay"],
+            dependencies: ["AvesdEnvironment", "AvesdOverlay", .product(name: "PostHog", package: "posthog-ios")],
             linkerSettings: [
                 .unsafeFlags(["-Xlinker", "-rpath", "-Xlinker", "\(rustLibraryDirectory)/debug"], .when(configuration: .debug)),
                 .unsafeFlags(["-Xlinker", "-rpath", "-Xlinker", "\(rustLibraryDirectory)/release"], .when(configuration: .release))
