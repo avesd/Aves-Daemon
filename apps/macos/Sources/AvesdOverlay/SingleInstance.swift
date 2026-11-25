@@ -15,7 +15,11 @@ final class InstanceLock {
         descriptor = fd
     }
 
-    deinit { close(descriptor) }
+    deinit {
+        // A child process may briefly inherit the descriptor until exec.
+        flock(descriptor, LOCK_UN)
+        close(descriptor)
+    }
 }
 
 @MainActor
