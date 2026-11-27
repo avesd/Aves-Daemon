@@ -11,13 +11,6 @@ enum OverlayLayout {
     static var markCenter: CGPoint { CGPoint(x: origin.x + inset + markSize / 2, y: origin.y + headerHeight / 2) }
 }
 
-struct OverlayContent: Decodable {
-    let headline, secondary, trailing, title, caption, accessibility: String
-    let icon: String
-    let routeDestination, airlineCode, airlineMark: String?
-    let rows: [[String]]
-}
-
 struct OverlayFrame {
     var panel = AvesdPanel()
     var icon: [AvesdCommand] = []
@@ -53,12 +46,12 @@ private final class PlaybackHandle {
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
         let bytes = Data(String(cString: avesd_overlay_content(pointer)).utf8)
-        guard let content = try? decoder.decode(OverlayContent.self, from: bytes) else {
+        guard let presentation = try? decoder.decode(OverlayPresentation.self, from: bytes) else {
             avesd_overlay_destroy(pointer)
             return nil
         }
         self.pointer = pointer
-        self.content = content
+        self.content = presentation.localized()
         copyFrame(changes: AvesdFrameChanges(panel: true, icon: true, scenery: true))
     }
 

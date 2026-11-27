@@ -1,3 +1,4 @@
+import AvesdEnvironment
 import CAvesdCore
 import CoreLocation
 import SwiftUI
@@ -16,9 +17,9 @@ enum RegionSelection: Codable {
 
     var label: String {
         switch self {
-        case .kyoto: "Kyoto (default)"
+        case .kyoto: SettingsText.regionKyoto.string
         case .place(let name, _): name
-        case .device: "My location"
+        case .device: SettingsText.regionDevice.string
         }
     }
 }
@@ -114,7 +115,7 @@ final class EventRegion: NSObject, ObservableObject, @preconcurrency CLLocationM
         if case .device = selection { select(.kyoto) }
         locating = false
         awaitingAuthorization = false
-        message = "Location access is unavailable. Choose a place or allow access in System Settings."
+        message = SettingsText.regionDenied.string
     }
 
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
@@ -133,7 +134,7 @@ final class EventRegion: NSObject, ObservableObject, @preconcurrency CLLocationM
         locating = false
         guard let fix = locations.last, (0...5000).contains(fix.horizontalAccuracy),
               abs(fix.timestamp.timeIntervalSinceNow) <= 300, let cell = Self.cell(for: fix.coordinate) else {
-            message = "Couldn’t get a recent location close enough for nearby flights. Try again or choose a place."
+            message = SettingsText.regionImprecise.string
             return
         }
         save(.device(cell: cell, updated: fix.timestamp))
@@ -146,7 +147,7 @@ final class EventRegion: NSObject, ObservableObject, @preconcurrency CLLocationM
             locationAccessUnavailable()
         } else {
             locating = false
-            message = "Couldn’t get your location. Try again or choose a place."
+            message = SettingsText.regionFailed.string
         }
     }
 }

@@ -1,3 +1,4 @@
+import AvesdEnvironment
 import SwiftUI
 
 struct PollingSettings: View {
@@ -13,14 +14,14 @@ struct PollingSettings: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            minutes("Base interval", value: binding(\.base))
-            SettingsRow(label: "Extend interval after playback") {
-                Toggle("Extend interval after playback", isOn: binding(\.increasesAfterPlayback))
+            minutes(SettingsText.rhythmBase.string, value: binding(\.base))
+            SettingsRow(label: SettingsText.rhythmExtend.string) {
+                Toggle(SettingsText.rhythmExtend.string, isOn: binding(\.increasesAfterPlayback))
                     .labelsHidden().toggleStyle(.switch)
             }
             if preferences.polling.increasesAfterPlayback {
-                minutes("Increase by", value: binding(\.step))
-                minutes("Maximum interval", value: binding(\.maximum),
+                minutes(SettingsText.rhythmStep.string, value: binding(\.step))
+                minutes(SettingsText.rhythmMaximum.string, value: binding(\.maximum),
                         range: preferences.polling.base...PollingPolicy.minutes.upperBound)
             }
             intervalPreview.padding(.top, 22)
@@ -32,7 +33,7 @@ struct PollingSettings: View {
         let second = policy.nextInterval(after: policy.base, played: true)
         let intervals = [policy.base, second, policy.nextInterval(after: second, played: true)]
         return VStack(alignment: .leading, spacing: 12) {
-            Text("Interval after consecutive plays").font(.headline)
+            Text(SettingsText.rhythmPreview.string).font(.headline)
             HStack(spacing: 12) {
                 ForEach(intervals.indices, id: \.self) { index in
                     VStack(alignment: .leading, spacing: 6) {
@@ -41,14 +42,14 @@ struct PollingSettings: View {
                                 .frame(width: max(2, geometry.size.width * CGFloat(intervals[index]) / CGFloat(intervals[2])))
                         }
                         .frame(height: 4)
-                        Text("\(intervals[index]) min").monospacedDigit()
+                        Text(SettingsText.rhythmMinutes(intervals[index]).string).monospacedDigit()
                             .font(.callout).foregroundStyle(.secondary)
                     }
                     .frame(maxWidth: 130, alignment: .leading)
                 }
             }
             if policy.increasesAfterPlayback {
-                Text("A round without playback resets the interval to its base value.")
+                Text(SettingsText.rhythmReset.string)
                     .font(.callout).foregroundStyle(.secondary)
             }
         }
@@ -61,7 +62,7 @@ struct PollingSettings: View {
             HStack(spacing: 6) {
                 TextField(label, value: value, format: .number)
                     .labelsHidden().multilineTextAlignment(.trailing).frame(width: 56)
-                Text("min").foregroundStyle(.secondary)
+                Text(SettingsText.rhythmMinuteUnit.string).foregroundStyle(.secondary)
                 Stepper(label, value: value, in: range).labelsHidden()
             }
         }

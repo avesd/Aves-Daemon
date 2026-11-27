@@ -1,13 +1,18 @@
 import AvesdEnvironment
 import SwiftUI
 
-enum SettingsPage: String, CaseIterable, Identifiable {
-    case display = "Display"
-    case sources = "Data sources"
-    case polling = "Rhythm"
-    case maintenance = "Maintenance"
+enum SettingsPage: CaseIterable, Identifiable {
+    case display, sources, polling, maintenance
 
     var id: Self { self }
+    var title: String {
+        switch self {
+        case .display: SettingsText.pageDisplay.string
+        case .sources: SettingsText.pageSources.string
+        case .polling: SettingsText.pageRhythm.string
+        case .maintenance: SettingsText.pageMaintenance.string
+        }
+    }
     var icon: String {
         switch self {
         case .display: "display"
@@ -82,7 +87,7 @@ struct SettingsView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
                     if navigation.page != .sources {
-                        SettingsHeading(title: navigation.page.rawValue)
+                        SettingsHeading(title: navigation.page.title)
                     }
                     switch navigation.page {
                     case .display: displaySettings
@@ -117,7 +122,7 @@ struct SettingsView: View {
                     } label: {
                         HStack(spacing: 7) {
                             Image(systemName: page.icon).frame(width: 18)
-                            Text(page.rawValue).lineLimit(1)
+                            Text(page.title).lineLimit(1)
                         }
                         .fontWeight(selected ? .semibold : .regular)
                         .foregroundStyle(selected ? accent : .primary)
@@ -150,28 +155,28 @@ struct SettingsView: View {
     }
 
     private var displaySettings: some View {
-        SettingsRow(label: "Display duration") {
-            Picker("Display duration", selection: $preferences.displaySeconds) {
+        SettingsRow(label: SettingsText.displayDuration.string) {
+            Picker(SettingsText.displayDuration.string, selection: $preferences.displaySeconds) {
                 ForEach(DaemonPreferences.durations, id: \.self) { seconds in
-                    Text("\(seconds) s").tag(seconds)
+                    Text(SettingsText.displaySeconds(seconds).string).tag(seconds)
                 }
             }
             .labelsHidden().pickerStyle(.segmented).fixedSize()
-            Button("Preview Once", action: preview)
+            Button(SettingsText.displayPreview.string, action: preview)
         }
     }
 
     private var maintenanceSettings: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Airline logos").font(.headline)
-            SettingsRow(label: "Preload common airlines") {
-                Toggle("Preload common airlines", isOn: $preferences.preloadLogos)
+            Text(SettingsText.cacheHeading.string).font(.headline)
+            SettingsRow(label: SettingsText.cachePreload.string) {
+                Toggle(SettingsText.cachePreload.string, isOn: $preferences.preloadLogos)
                     .labelsHidden().toggleStyle(.switch)
                     .onChange(of: preferences.preloadLogos, perform: changePrefetch)
             }
-            SettingsRow(label: "Local cache") {
+            SettingsRow(label: SettingsText.cacheLocal.string) {
                 Text(cacheDescription).foregroundStyle(.secondary)
-                Button("Clear Logo Cache") {
+                Button(SettingsText.cacheClear.string) {
                     clearing = true
                     errorMessage = nil
                     Task {
@@ -186,12 +191,12 @@ struct SettingsView: View {
             if let errorMessage { Text(errorMessage).foregroundStyle(.red) }
             updates.settings
             if analytics.isAvailable {
-                Text("Usage statistics").font(.headline)
-                Toggle("Share anonymous usage statistics", isOn: Binding(
+                Text(SettingsText.analyticsHeading.string).font(.headline)
+                Toggle(SettingsText.analyticsShare.string, isOn: Binding(
                     get: { analytics.isEnabled }, set: { analytics.setEnabled($0) }
                 ))
                 .toggleStyle(.switch)
-                Text("Send app launches, overlay displays, and detail expansions to PostHog.")
+                Text(SettingsText.analyticsDescription.string)
                     .font(.callout).foregroundStyle(.secondary)
             }
         }
@@ -208,9 +213,13 @@ struct SettingsView: View {
     }
 
     private var cacheDescription: String {
-        guard cache != nil else { return "Unavailable" }
-        guard let statistics else { return errorMessage == nil ? "Loading…" : "Unavailable" }
-        let size = statistics.bytes == 0 ? "0 bytes" : ByteCountFormatter.string(fromByteCount: Int64(statistics.bytes), countStyle: .file)
-        return "\(statistics.count) \(statistics.count == 1 ? "logo" : "logos") · \(size)"
+        guard cache != nil else { return SettingsText.cacheUnavailable.string }
+        guard let statistics else {
+            return errorMessage == nil ? SettingsText.cacheLoading.string : SettingsText.cacheUnavailable.string
+        }
+        let size = statistics.bytes == 0
+            ? SettingsText.cacheZeroBytes.string
+            : ByteCountFormatter.string(fromByteCount: Int64(statistics.bytes), countStyle: .file)
+        return SettingsText.cacheCount(statistics.count, size).string
     }
 }

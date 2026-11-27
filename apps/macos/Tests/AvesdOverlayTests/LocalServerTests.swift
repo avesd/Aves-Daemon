@@ -1,3 +1,4 @@
+import AvesdEnvironment
 import Foundation
 import Testing
 @testable import AvesdOverlay
@@ -83,9 +84,12 @@ private func start(_ server: LocalMurmurServer) async throws -> URL {
         let played = await polling.poll(sources: { [source] }, cell: { nil }, play: show)
         #expect(played && presentations == 1)
         _ = await polling.poll(sources: { [source] }, cell: { nil }, play: show)
-        #expect(polling.status[source.id] == "No event available")
+        #expect(polling.status[source.id] == SettingsText.pollEmpty.string)
         #expect(overlay.content?.headline == "Build ready")
-        #expect(overlay.content?.rows == [["Detail", "42 checks passed."]])
+        let rows = try #require(overlay.content?.rows)
+        #expect(rows.count == 1)
+        #expect(rows.first?.label == OverlayText.noteDetail.string)
+        #expect(rows.first?.value == "42 checks passed.")
         #expect(!overlay.frame.icon.isEmpty && overlay.frame.fieldOpacity(1) == 1)
 
         prefs.moveSource(MurmurSource.local.id, to: 0)

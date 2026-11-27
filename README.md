@@ -24,7 +24,7 @@ Native clients own their windows and input. The Rust core handles playback and d
 
 The macOS display preview uses the flyover from the six [sample events](crates/avesd-events/fixtures/).
 
-The [overlay core](crates/avesd-core/src/overlay/) creates summary content and a seeded playback instance from one event. Each [effect](crates/avesd-core/src/overlay/effects/) emits ordered vector commands for the icon and the surrounding scenery. The playback clock controls field visibility, hover expansion, dismissal, and Reduce Motion.
+The [overlay core](crates/avesd-core/src/overlay/) derives language-independent presentation data and a seeded playback instance from one event. The native client formats event text in the user's language. Each [effect](crates/avesd-core/src/overlay/effects/) emits ordered vector commands for the icon and the surrounding scenery. The playback clock controls field visibility, hover expansion, dismissal, and Reduce Motion.
 
 The native renderer reads each frame through the [C header](crates/avesd-ffi/include/avesd.h).
 

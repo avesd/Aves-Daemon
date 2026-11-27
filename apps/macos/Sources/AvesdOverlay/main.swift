@@ -81,13 +81,13 @@ final class OverlayApp: NSObject, NSApplicationDelegate {
         status.button?.toolTip = environment.statusLabel
         status.button?.setAccessibilityLabel(environment.statusLabel)
         let menu = NSMenu()
-        let locationItem = menu.addItem(withTitle: "Use My Location for Nearby Flights",
+        let locationItem = menu.addItem(withTitle: SettingsText.menuLocation.string,
                                         action: #selector(useMyLocation), keyEquivalent: "")
         locationItem.target = self
-        menu.addItem(withTitle: "Settings…", action: #selector(showSettings), keyEquivalent: ",").target = self
+        menu.addItem(withTitle: SettingsText.menuSettings.string, action: #selector(showSettings), keyEquivalent: ",").target = self
         updates.attach(to: menu, button: status.button)
         menu.addItem(.separator())
-        menu.addItem(withTitle: "Quit \(channel.appName)", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        menu.addItem(withTitle: SettingsText.menuQuit(channel.appName).string, action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         status.menu = menu
         statusItem = status
         analytics.appStarted()
@@ -153,7 +153,7 @@ final class OverlayApp: NSObject, NSApplicationDelegate {
                                         changePrefetch: { [weak self] enabled in self?.setPrefetch(enabled) },
                                         clearCache: { [weak self] in try await self?.clearLogos() }, navigation: navigation)
             let window = NSWindow(contentViewController: NSHostingController(rootView: settings))
-            window.title = "\(environment.channel.appName) Settings"
+            window.title = SettingsText.windowSettings(environment.channel.appName).string
             window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
             window.setContentSize(NSSize(width: 780, height: 530))
             window.isReleasedWhenClosed = false

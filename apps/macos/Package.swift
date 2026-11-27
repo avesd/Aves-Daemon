@@ -21,10 +21,12 @@ let updaterTargets: [Target] = channel.includesUpdater ? [
 
 let package = Package(
     name: "AvesdOverlay",
+    defaultLocalization: "en",
     platforms: [.macOS(.v13)],
     dependencies: [.package(url: "https://github.com/PostHog/posthog-ios.git", exact: "4.0.11")],
     targets: updaterTargets + [
-        .target(name: "AvesdEnvironment", resources: [.embedInCode("channels.json")]),
+        .plugin(name: "CompileLocalizations", capability: .buildTool()),
+        .target(name: "AvesdEnvironment", resources: [.embedInCode("channels.json")], plugins: ["CompileLocalizations"]),
         .systemLibrary(name: "CAvesdCore"),
         .executableTarget(
             name: "AvesdOverlay",

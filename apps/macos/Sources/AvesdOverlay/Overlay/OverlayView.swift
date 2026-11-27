@@ -126,7 +126,7 @@ struct OverlayView: View {
             detailSection(title: content.title, caption: content.caption) {
                 ForEach(content.rows.indices, id: \.self) { i in
                     let row = content.rows[i]
-                    if row.count == 2 { detailRow(LocalizedStringKey(row[0]), row[1]) }
+                    detailRow(row.label, row.value)
                 }
             }
         }
@@ -146,7 +146,7 @@ struct OverlayView: View {
         .padding(.bottom, 12)
     }
 
-    private func detailRow(_ label: LocalizedStringKey, _ value: String) -> some View {
+    private func detailRow(_ label: String, _ value: String) -> some View {
         GridRow(alignment: .firstTextBaseline) {
             Text(label).font(.system(size: 12)).foregroundStyle(.white.opacity(0.68))
             Text(value).font(.system(size: 13)).lineLimit(2)

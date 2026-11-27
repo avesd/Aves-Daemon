@@ -1,3 +1,4 @@
+import AvesdEnvironment
 import Foundation
 import Security
 
@@ -40,7 +41,8 @@ struct LocalServerToken {
     }
 
     private func keychainError(_ status: OSStatus) -> NSError {
-        NSError(domain: NSOSStatusErrorDomain, code: Int(status),
-                userInfo: [NSLocalizedDescriptionKey: SecCopyErrorMessageString(status, nil) as String? ?? "Keychain error \(status)"])
+        let message = SecCopyErrorMessageString(status, nil) as String?
+            ?? SettingsText.serverKeychainError(Int(status)).string
+        return NSError(domain: NSOSStatusErrorDomain, code: Int(status), userInfo: [NSLocalizedDescriptionKey: message])
     }
 }

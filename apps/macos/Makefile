@@ -42,6 +42,9 @@ endif
 	mkdir -p "$(APP)/Contents/Resources/Fonts"
 	rsync -a "$(SWIFT_BUILD)/$(CONFIGURATION)"/PostHog_*.bundle "$(APP)/Contents/Resources/"
 	rsync -rt --delete Sources/AvesdOverlay/Fonts/ "$(APP)/Contents/Resources/Fonts/"
+	rsync -rct --delay-updates --delete-after --include='/*.lproj/' \
+	    $(foreach table,Settings Overlay InfoPlist,--include='/*.lproj/$(table).strings' --include='/*.lproj/$(table).stringsdict') \
+	    --exclude='*' "$(SWIFT_BUILD)/$(CONFIGURATION)/AvesdOverlay_AvesdEnvironment.bundle/" "$(APP)/Contents/Resources/"
 	node configure-bundle.ts "$(CHANNEL)" "$(APP)/Contents/Info.plist"
 
 test: rust brand

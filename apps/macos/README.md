@@ -16,6 +16,12 @@ The [channel profiles](Sources/AvesdEnvironment/channels.json) define the bundle
 
 Run `make run-macos` from the repository root (or `make run` here) to rebuild and restart Local. To run an optimized Local build, use `make run-macos CONFIGURATION=release`. Test and Release use release optimization by default. Open their app bundles to run them alongside Local.
 
+## Language
+
+The menu bar, settings, event overlays, and VoiceOver descriptions follow the macOS app language. English, Simplified Chinese, and Latin American Spanish are available. To set a language for one build channel, select its app under **System Settings → General → Language & Region → Applications**, then reopen it.
+
+[Settings.xcstrings](Localization/Settings.xcstrings) contains the menu and settings copy. [Overlay.xcstrings](Localization/Overlay.xcstrings) contains event summaries, detail rows, and spoken descriptions. The system reads location permission text from [InfoPlist.xcstrings](Localization/InfoPlist.xcstrings). SwiftPM checks the translations and their format arguments, compiles the resources, and generates typed Swift accessors for each UI catalog. The standalone executable and all three app channels use these resources. Event sources supply place names, flight identifiers, and personal notes verbatim.
+
 ## Playback preview
 
 The app runs as a menu bar accessory without a Dock icon. Click the bird in the macOS menu bar, open **Settings… → Display**, and click **Preview Once** beside the display duration. The preview plays a sample United Airlines flight from Los Angeles to Sydney. The plane crosses the upper-right corner of the display containing the pointer and reveals its carrier mark, route, callsign, and aircraft type in its wake. Reduce Motion shows the summary in place.
@@ -84,7 +90,7 @@ Choose **Settings…** from the menu bar, or reopen the running app from Finder.
 Use the persistent sidebar to switch between four pages. Changes take effect while the app is running.
 
 - **Display** lets you choose 3, 5, or 8 seconds and try that duration with **Preview Once**.
-- **Data sources** lists each source and its latest request result. Add a regional API base URL to use the selected area, or enter a complete fixed event URL. Edit a source to rename or remove it. Turn off every source to pause polling playback. On upgrade, an existing custom feed becomes the sole enabled fixed source. New installations start with the regional Murmur service.
+- **Data sources** lists each source and its latest request result. Add a regional API base URL to use the selected area, or enter a complete fixed event URL. Edit a source to rename or remove it. Turn off every source to pause polling playback. On upgrade, an existing custom feed becomes the sole enabled fixed source. Its default name follows the app language until you rename it. New installations start with the regional Murmur service.
 - **Rhythm** controls the base interval and optional increase after playback. Defaults are 5 minutes initially, 5 minutes per increase, and a 15-minute maximum. A round without playback restores the base interval. Fixed mode always uses the base interval. Changes to the schedule or source list restart the wait.
 - **Maintenance** contains the airline logo cache. Release builds also offer anonymous usage statistics and, when configured, software updates.
 

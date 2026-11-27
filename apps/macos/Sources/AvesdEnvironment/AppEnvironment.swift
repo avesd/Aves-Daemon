@@ -43,11 +43,11 @@ package struct AppEnvironment {
         let release = bundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
         let build = bundle.object(forInfoDictionaryKey: "CFBundleVersion") as? String
         if let release, !release.isEmpty {
-            if let build, !build.isEmpty { return "Version \(release) (\(build))" }
-            return "Version \(release)"
+            if let build, !build.isEmpty { return SettingsText.appVersionBuild(release, build).string }
+            return SettingsText.appVersion(release).string
         }
-        if let build, !build.isEmpty { return "Build \(build)" }
-        return "Development build"
+        if let build, !build.isEmpty { return SettingsText.appBuild(build).string }
+        return SettingsText.appDevelopment.string
     }
 
     package var statusLabel: String { "Aves Daemon \(channel.name) · \(version)" }

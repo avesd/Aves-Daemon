@@ -1,10 +1,11 @@
+import AvesdEnvironment
 import Foundation
 import Combine
 
 struct MurmurSource: Codable, Identifiable, Equatable, Sendable {
     enum Mode: String, Codable, CaseIterable { case regional, fixed, local }
     var id = UUID()
-    var name: String
+    var name: String?
     var address: String
     var mode: Mode
     var enabled = true
@@ -12,7 +13,14 @@ struct MurmurSource: Codable, Identifiable, Equatable, Sendable {
     static let official = MurmurSource(name: "Murmur", address: "https://murmur-api.avesd.ai", mode: .regional)
 
     static let local = MurmurSource(id: UUID(uuidString: "1FE1DA74-556B-4C3F-905B-B3C3C0542535")!,
-                                    name: "Local server", address: "", mode: .local)
+                                    name: nil, address: "", mode: .local)
+
+    var displayName: String { displayName(in: CatalogText.bundle) }
+
+    func displayName(in bundle: Bundle) -> String {
+        if mode == .local { return String(localized: SettingsText.serverTitle.resource(in: bundle)) }
+        return name ?? String(localized: SettingsText.sourceCustom.resource(in: bundle))
+    }
 
     func resolvedAddress(localServerURL: URL) -> String {
         mode == .local ? localServerURL.absoluteString : address
@@ -95,7 +103,7 @@ final class DaemonPreferences: ObservableObject {
             sources = (try? JSONDecoder().decode([MurmurSource].self, from: stored)) ?? []
         } else {
             if let legacy = defaults.string(forKey: "eventPollingURL") {
-                sources = [MurmurSource(name: "Custom Murmur", address: legacy, mode: .fixed)]
+                sources = [MurmurSource(name: nil, address: legacy, mode: .fixed)]
             } else {
                 sources = [.official]
             }

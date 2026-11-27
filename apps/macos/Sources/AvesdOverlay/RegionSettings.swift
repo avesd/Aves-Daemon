@@ -1,3 +1,4 @@
+import AvesdEnvironment
 import CoreLocation
 import SwiftUI
 
@@ -7,15 +8,15 @@ struct RegionSettings: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            SettingsRow(label: "Nearby flights area") {
-                Menu(region.locating ? "Locating…" : region.selection.label) {
-                    Button("Use My Location") { region.useMyLocation() }
+            SettingsRow(label: SettingsText.regionArea.string) {
+                Menu(region.locating ? SettingsText.regionLocating.string : region.selection.label) {
+                    Button(SettingsText.regionUseDevice.string) { region.useMyLocation() }
                         .disabled(region.locating)
-                    Button("Choose Place…") { choosing = true }
-                    Button("Use Kyoto (Default)") { region.select(.kyoto) }
+                    Button(SettingsText.regionChoose.string) { choosing = true }
+                    Button(SettingsText.regionReset.string) { region.select(.kyoto) }
                 }
                 .fixedSize()
-                .accessibilityLabel("Nearby flights area")
+                .accessibilityLabel(SettingsText.regionArea.string)
                 .accessibilityValue(region.selection.label)
             }
             if let message = region.message {
@@ -41,11 +42,11 @@ private struct PlacePicker: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Choose a place").font(.headline)
+            Text(SettingsText.regionPickerTitle.string).font(.headline)
             HStack {
-                TextField("City or town, country", text: $query)
+                TextField(SettingsText.regionQuery.string, text: $query)
                     .onSubmit { find() }
-                Button("Find") { find() }.disabled(query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                Button(SettingsText.regionFind.string) { find() }.disabled(query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
             if let message { Text(message).font(.callout).foregroundStyle(.secondary) }
             ForEach(matches.indices, id: \.self) { index in
@@ -57,9 +58,9 @@ private struct PlacePicker: View {
                 }
             }
             HStack {
-                Button("Use Kyoto (Default)") { select(.kyoto) }
+                Button(SettingsText.regionReset.string) { select(.kyoto) }
                 Spacer()
-                Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
+                Button(SettingsText.actionCancel.string) { dismiss() }.keyboardShortcut(.cancelAction)
             }
         }
         .padding(20)
@@ -77,16 +78,16 @@ private struct PlacePicker: View {
         guard !text.isEmpty else { return }
         search?.cancel()
         matches = []
-        message = "Searching…"
+        message = SettingsText.regionSearching.string
         search = Task {
             do {
                 let places = try await CLGeocoder().geocodeAddressString(text)
                 guard !Task.isCancelled else { return }
                 matches = places.filter { $0.location != nil }
-                message = matches.isEmpty ? "No places found." : nil
+                message = matches.isEmpty ? SettingsText.regionNoResults.string : nil
             } catch {
                 guard !Task.isCancelled else { return }
-                message = "Couldn’t find that place. Try a city and country."
+                message = SettingsText.regionSearchFailed.string
             }
         }
     }

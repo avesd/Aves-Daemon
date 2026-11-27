@@ -1,3 +1,4 @@
+import AvesdEnvironment
 import SwiftUI
 
 struct SourceSettings: View {
@@ -14,20 +15,20 @@ struct SourceSettings: View {
         } else {
             VStack(alignment: .leading, spacing: 18) {
                 HStack {
-                    SettingsHeading(title: SettingsPage.sources.rawValue)
+                    SettingsHeading(title: SettingsPage.sources.title)
                     Spacer()
                     Button { editing = MurmurSource(name: "", address: "", mode: .regional) } label: {
-                        Label("Add source", systemImage: "plus")
+                        Label(SettingsText.sourceAdd.string, systemImage: "plus")
                     }
                     .buttonStyle(.borderedProminent)
                 }
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(alignment: .firstTextBaseline) {
-                        Text("Murmur sources").font(.headline)
+                        Text(SettingsText.sourceGroup.string).font(.headline)
                         Spacer()
-                        Text("Include in polling").font(.caption).foregroundStyle(.secondary)
+                        Text(SettingsText.sourceInclude.string).font(.caption).foregroundStyle(.secondary)
                     }
-                    Text("When several sources have events, they take turns in this order.")
+                    Text(SettingsText.sourceOrderHelp.string)
                         .font(.callout).foregroundStyle(.secondary)
                     ForEach($preferences.sources) { $source in
                         let index = preferences.sources.firstIndex { $0.id == source.id } ?? 0
@@ -36,10 +37,10 @@ struct SourceSettings: View {
                                 .foregroundStyle(.secondary)
                                 .frame(width: 22, height: 32)
                                 .contentShape(Rectangle())
-                                .draggable(source.id.uuidString) { Text(source.name).padding(6) }
-                                .help("Drag to reorder \(source.name)")
+                                .draggable(source.id.uuidString) { Text(source.displayName).padding(6) }
+                                .help(SettingsText.sourceDrag(source.displayName).string)
                             VStack(alignment: .leading, spacing: 3) {
-                                Text(source.name).font(.headline)
+                                Text(source.displayName).font(.headline)
                                 let address = source.resolvedAddress(localServerURL: localServerURL)
                                 Text(address).font(.system(.caption, design: .monospaced))
                                     .foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
@@ -49,17 +50,17 @@ struct SourceSettings: View {
                             }
                             Spacer(minLength: 4)
                             Menu {
-                                if source.mode != .local { Button("Edit source…") { editing = source } }
-                                Button("Move up") { preferences.moveSource(source.id, to: index - 1) }
+                                if source.mode != .local { Button(SettingsText.sourceEditAction.string) { editing = source } }
+                                Button(SettingsText.sourceUp.string) { preferences.moveSource(source.id, to: index - 1) }
                                     .disabled(index == 0)
-                                Button("Move down") { preferences.moveSource(source.id, to: index + 1) }
+                                Button(SettingsText.sourceDown.string) { preferences.moveSource(source.id, to: index + 1) }
                                     .disabled(index + 1 >= preferences.sources.count)
                             } label: { Image(systemName: "ellipsis.circle") }
                             .menuStyle(.borderlessButton).fixedSize()
-                            .accessibilityLabel("Options for \(source.name)")
-                            Toggle("Include \(source.name) in polling", isOn: $source.enabled)
+                            .accessibilityLabel(SettingsText.sourceOptions(source.displayName).string)
+                            Toggle(SettingsText.sourcePoll(source.displayName).string, isOn: $source.enabled)
                                 .labelsHidden().toggleStyle(.switch)
-                                .help("Include in polling")
+                                .help(SettingsText.sourceInclude.string)
                         }
                         .padding(.vertical, 12)
                         .contentShape(Rectangle())
@@ -72,7 +73,7 @@ struct SourceSettings: View {
                         Divider()
                     }
                     if preferences.sources.isEmpty {
-                        Text("No sources configured").foregroundStyle(.secondary)
+                        Text(SettingsText.sourceNone.string).foregroundStyle(.secondary)
                     }
                 }
                 if preferences.usesRegion { RegionSettings(region: region) }
@@ -82,9 +83,9 @@ struct SourceSettings: View {
     }
 
     private func status(of source: MurmurSource) -> String {
-        if source.mode == .local && !localServer.state.isRunning { return "Server stopped" }
-        if !source.enabled { return "Polling off" }
-        return polling.status[source.id] ?? "Waiting for the next request"
+        if source.mode == .local && !localServer.state.isRunning { return SettingsText.sourceStopped.string }
+        if !source.enabled { return SettingsText.sourcePollingOff.string }
+        return polling.status[source.id] ?? SettingsText.sourceWaiting.string
     }
 }
 
@@ -102,7 +103,7 @@ private struct SourceEditor: View {
 
     private var cleaned: MurmurSource {
         var value = draft
-        value.name = value.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        value.name = value.name?.trimmingCharacters(in: .whitespacesAndNewlines)
         value.address = value.address.trimmingCharacters(in: .whitespacesAndNewlines)
         return value
     }
@@ -113,43 +114,46 @@ private struct SourceEditor: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            SettingsHeading(title: sourceIndex == nil ? "Add source" : "Edit source")
+            SettingsHeading(title: sourceIndex == nil ? SettingsText.sourceAdd.string : SettingsText.sourceEdit.string)
             VStack(alignment: .leading, spacing: 5) {
-                Text("Source name")
-                TextField("Source name", text: $draft.name).labelsHidden().focused($editingName)
+                Text(SettingsText.sourceName.string)
+                TextField(SettingsText.sourceName.string, text: Binding(
+                    get: { draft.displayName },
+                    set: { if $0 != draft.displayName { draft.name = $0 } }
+                )).labelsHidden().focused($editingName)
             }
-            Picker("Endpoint type", selection: $draft.mode) {
-                Text("Follow selected area").tag(MurmurSource.Mode.regional)
-                Text("Fixed event URL").tag(MurmurSource.Mode.fixed)
+            Picker(SettingsText.sourceEndpoint.string, selection: $draft.mode) {
+                Text(SettingsText.sourceRegional.string).tag(MurmurSource.Mode.regional)
+                Text(SettingsText.sourceFixed.string).tag(MurmurSource.Mode.fixed)
             }
             VStack(alignment: .leading, spacing: 5) {
-                let label = draft.mode == .regional ? "API base URL" : "Event URL"
+                let label = draft.mode == .regional ? SettingsText.sourceBaseURL.string : SettingsText.sourceEventURL.string
                 Text(label)
                 TextField(label, text: $draft.address).labelsHidden()
                 if draft.mode == .regional {
-                    Text("The app appends /v1/regions/{cell}/event to the base URL.")
+                    Text(SettingsText.sourceUrlHelp.string)
                         .font(.callout).foregroundStyle(.secondary)
                 }
                 if !cleaned.address.isEmpty && cleaned.configuredURL == nil {
-                    Text("Enter a valid HTTP or HTTPS URL.").foregroundStyle(.red)
+                    Text(SettingsText.sourceInvalidURL.string).foregroundStyle(.red)
                 }
             }
             HStack {
                 if let index = sourceIndex {
-                    Button("Remove source", role: .destructive) {
+                    Button(SettingsText.sourceRemove.string, role: .destructive) {
                         preferences.sources.remove(at: index)
                         finish()
                     }
                 }
                 Spacer()
-                Button("Cancel", action: finish).keyboardShortcut(.cancelAction)
-                Button("Save") {
+                Button(SettingsText.actionCancel.string, action: finish).keyboardShortcut(.cancelAction)
+                Button(SettingsText.actionSave.string) {
                     if let index = sourceIndex { preferences.sources[index] = cleaned }
                     else { preferences.sources.append(cleaned) }
                     finish()
                 }
                 .keyboardShortcut(.defaultAction)
-                .disabled(cleaned.name.isEmpty || cleaned.configuredURL == nil)
+                .disabled(cleaned.displayName.isEmpty || cleaned.configuredURL == nil)
             }
         }
         .onAppear { editingName = true }

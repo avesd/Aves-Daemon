@@ -118,10 +118,10 @@ struct SidebarBrand: View {
             .padding(.vertical, 3)
             .contentShape(Rectangle())
         }
-        .help("About \(environment.statusLabel)")
+        .help(SettingsText.aboutShow(environment.statusLabel).string)
         .buttonStyle(.plain)
         .focused($focused)
-        .accessibilityLabel("About \(environment.channel.appName)")
+        .accessibilityLabel(SettingsText.aboutShow(environment.channel.appName).string)
         .accessibilityValue(Text(verbatim: environment.version))
         .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: active)
         .onHover { hovered = $0 }

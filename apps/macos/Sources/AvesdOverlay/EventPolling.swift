@@ -1,3 +1,4 @@
+import AvesdEnvironment
 import Foundation
 import Combine
 
@@ -28,9 +29,9 @@ final class EventPolling: ObservableObject {
 
         var summary: String {
             switch self {
-            case .event: "Received an event"
-            case .empty: "No event available"
-            case .retry(let date): "Retry after \(date.formatted())"
+            case .event: SettingsText.pollReceived.string
+            case .empty: SettingsText.pollEmpty.string
+            case .retry(let date): SettingsText.pollRetry(date.formatted()).string
             case .failed(let reason): reason
             }
         }
@@ -169,11 +170,11 @@ final class EventPolling: ObservableObject {
         struct Header: Decodable { let id: String }
         do {
             let (data, response) = try await fetch(request)
-            guard let http = response as? HTTPURLResponse else { return .failed("Invalid response") }
+            guard let http = response as? HTTPURLResponse else { return .failed(SettingsText.pollInvalidResponse.string) }
             switch http.statusCode {
             case 200:
                 guard let event = try? JSONDecoder().decode(Header.self, from: data), !event.id.isEmpty else {
-                    return .failed("Invalid event")
+                    return .failed(SettingsText.pollInvalidEvent.string)
                 }
                 return .event(event.id, data)
             case 204: return .empty

@@ -19,14 +19,14 @@ struct AboutView: View {
                     Text(verbatim: environment.version).font(.caption).foregroundStyle(.secondary)
                 }
             }
-            Text("A menu bar app that previews passing aircraft at the edge of your screen.")
+            Text(SettingsText.aboutDescription.string)
                 .fixedSize(horizontal: false, vertical: true)
-            Text("Rain summaries use [MET Norway](https://www.met.no/en) forecasts under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).")
+            Text(AttributedString(localized: SettingsText.aboutAttribution.resource()))
                 .font(.caption)
             HStack {
                 Link("avesd.ai", destination: URL(string: "https://avesd.ai")!)
                 Spacer()
-                Button("Done") { dismiss() }.keyboardShortcut(.cancelAction)
+                Button(SettingsText.aboutDone.string) { dismiss() }.keyboardShortcut(.cancelAction)
             }
         }
         .padding(24)

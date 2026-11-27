@@ -60,7 +60,7 @@ impl Playback {
     ) -> Self {
         let mut random = super::effects::Samples(seed);
         let mut session = Self {
-            effect: Effect::new(&event.payload, seed, &content.trailing),
+            effect: Effect::new(&event.payload, seed, &content.timetable),
             reduced,
             variation: random.range(-1., 1.),
             remaining: hold_ms / 1000.,

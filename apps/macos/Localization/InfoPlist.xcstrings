@@ -1,0 +1,52 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "NSLocationUsageDescription": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use your approximate area to find nearby flights. Only the area is sent to Murmur."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用你的大致位置查找附近航班。只会向 Murmur 发送所在区域。"
+          }
+        },
+        "es-419": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usa tu ubicación aproximada para buscar vuelos cercanos. Solo se envía la zona a Murmur."
+          }
+        }
+      }
+    },
+    "NSLocationWhenInUseUsageDescription": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use your approximate area to find nearby flights. Only the area is sent to Murmur."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用你的大致位置查找附近航班。只会向 Murmur 发送所在区域。"
+          }
+        },
+        "es-419": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usa tu ubicación aproximada para buscar vuelos cercanos. Solo se envía la zona a Murmur."
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

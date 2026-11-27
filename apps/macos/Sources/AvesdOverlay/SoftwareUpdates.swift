@@ -7,14 +7,14 @@ import Sparkle
 @MainActor
 final class SoftwareUpdates: NSObject, @preconcurrency SPUStandardUserDriverDelegate {
     private let environment: AppEnvironment
-    private let item = NSMenuItem(title: "Check for Updates…", action: nil, keyEquivalent: "")
+    private let item = NSMenuItem(title: SettingsText.updateCheck.string, action: nil, keyEquivalent: "")
     private weak var button: NSStatusBarButton?
     private var controller: SPUStandardUpdaterController?
     init(environment: AppEnvironment) { self.environment = environment }
 
     @ViewBuilder var settings: some View {
         if let updater = controller?.updater {
-            Text("Software updates").font(.headline)
+            Text(SettingsText.updateHeading.string).font(.headline)
             UpdateSettings(updater: updater).toggleStyle(.switch)
         }
     }
@@ -49,9 +49,9 @@ final class SoftwareUpdates: NSObject, @preconcurrency SPUStandardUserDriverDele
     }
 
     private func showReminder(version: String?) {
-        item.title = version.map { "Update Available · \($0)…" } ?? "Check for Updates…"
+        item.title = version.map { SettingsText.updateAvailable($0).string } ?? SettingsText.updateCheck.string
         button?.image = MenuBarBrand.image(showsUpdate: version != nil)
-        let label = environment.statusLabel + (version.map { " · Update \($0) available" } ?? "")
+        let label = version.map { SettingsText.updateStatus(environment.statusLabel, $0).string } ?? environment.statusLabel
         button?.toolTip = label
         button?.setAccessibilityLabel(label)
     }
@@ -63,12 +63,12 @@ private struct UpdateSettings: View {
     @State private var downloads = false
 
     var body: some View {
-        Toggle("Automatically check for updates", isOn: Binding(
+        Toggle(SettingsText.updateAutoCheck.string, isOn: Binding(
             get: { checks }, set: { updater.automaticallyChecksForUpdates = $0 }
         ))
         .onReceive(updater.publisher(for: \.automaticallyChecksForUpdates)) { checks = $0 }
 
-        Toggle("Automatically download and install updates", isOn: Binding(
+        Toggle(SettingsText.updateAutoInstall.string, isOn: Binding(
             get: { downloads }, set: { updater.automaticallyDownloadsUpdates = $0 }
         ))
         .disabled(!checks)
