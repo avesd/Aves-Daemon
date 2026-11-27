@@ -2,7 +2,7 @@
 
 ## Summary
 
-The joint Aves Daemon and Aves Daemon Service audit found three desktop-owned defects. A regional poll can miss its scheduled day, an unplayed local note can expire behind already-played notes, and a slow source can delay local playback past the note's deadline. The first two findings are P2 and the third is P3.
+The joint Aves Daemon and Aves Daemon Service audit found three desktop-owned defects. A regional poll can miss its scheduled day, an unplayed local note can expire behind already-played notes, and a slow source can delay local playback past the note's deadline. The first two findings are P2 and the third is P3. All three findings are resolved in the current worktree. There are no open defects.
 
 ## Scope and Method
 
@@ -17,6 +17,7 @@ Reviewed the Aves Daemon macOS worktree at `a4b82e7`, including regional endpoin
 - **Decision boundary** Device mode refreshes a 24-hour-old fix. Fixed polling uses the user's selected base interval. [Location contract](../../apps/macos/README.md#L42) · [Rhythm settings](../../apps/macos/README.md#L88)
 - **Behavior and impact** Start a daily schedule after acquiring a device fix. If the Mac stays awake without an intervening refresh, the first due round skips Murmur. A successful refresh in the same cell publishes the new fix, but the scheduler observes only changes in cell ID. The next opportunity can be another 24 hours away. A sufficiently recent fix at a later poll allows recovery. Fixed places have no fix-age cutoff. [Refresh and callback](../../apps/macos/Sources/AvesdOverlay/EventRegion.swift#L93) · [Saving the fix](../../apps/macos/Sources/AvesdOverlay/EventRegion.swift#L131) · [Scheduler subscription](../../apps/macos/Sources/AvesdOverlay/main.swift#L101)
 - **Remediation and verification** Retain the due regional request while an authorized refresh is in progress and issue it once a usable cell arrives, including an unchanged cell. Keep fixed sources and the one-play-per-round rule working. Verify the 24-hour boundary, same-cell completion, refresh failure and cancellation when the regional source is disabled.
+- **Status** Resolved. An eligible regional source joins the due round after device location refreshes. Automatic cell changes keep the round active, and fixed sources can start their requests while the refresh is pending. [Polling](../../apps/macos/Sources/AvesdOverlay/EventPolling.swift#L87) · [Schedule subscription](../../apps/macos/Sources/AvesdOverlay/main.swift#L106)
 
 ### AUDIT-002 — An unplayed note can expire behind 65 already-played local notes
 
@@ -43,14 +44,19 @@ Reviewed the Aves Daemon macOS worktree at `a4b82e7`, including regional endpoin
 - Inserted 66 distinct notes and ran 70 accelerated rounds. The first 65 notes played newest first. The next five reads each returned the already-played newest note with 64 exclusions. The oldest note never played. The expiry outcome follows from insertion order and stored deadlines.
 - Returned a local note with one second remaining alongside a synthetic two-second Murmur response. The native session accepted the note about one second after expiry. A fresh SQLite read at that point returned no candidate. Live Murmur and the full repository validation suite were outside these checks.
 
+### Remediation verification
+
+- The native polling tests cover the 24-hour age limit, same-cell and changed-cell refreshes, a failed refresh and cancellation, with at most one play in a round. Location refresh results were supplied by the test, without Core Location hardware. [Regional tests](../../apps/macos/Tests/AvesdOverlayTests/PollingTests.swift#L206)
+- The local queue played all 66 notes once and left the last prepared note available to a public reader. The existing integration test exercised the loopback API. [Queue test](../../apps/macos/Tests/AvesdOverlayTests/PollingTests.swift#L131) · [Loopback test](../../apps/macos/Tests/AvesdOverlayTests/LocalServerTests.swift#L40)
+- Clock-controlled tests verify that explicit and default deadlines survive an update without a new expiry. They also verify that an expired candidate leaves no playback history and a valid event can play, including when the deadline passes during the replacement fade. [Round expiry test](../../apps/macos/Tests/AvesdOverlayTests/PollingTests.swift#L169) · [Replacement expiry test](../../apps/macos/Tests/AvesdOverlayTests/PollingTests.swift#L244)
+- Repository-root `make validate` passed with Node 26.12.1, Rust 1.93.0 and Apple Swift 6.3.3. The pinned Rust 1.100.0 toolchain could not be provisioned because rustup could not write its temporary directory. Rust 1.93.0 meets the workspace minimum of 1.91.0.
+
 ## Suggested Remediation Order
 
-1. `AUDIT-001` restores scheduled delivery from the default regional source in device-location mode.
-2. `AUDIT-002` lets the desktop client reach eligible local notes throughout their lifetime.
-3. `AUDIT-003` enforces local deadlines at the final playback decision.
+All three findings are resolved.
 
 ## Follow-up Checklist
 
-- [ ] `AUDIT-001` Issue the due regional poll after a same-cell refresh at the age limit.
-- [ ] `AUDIT-002` Play all 66 locally prepared notes exactly once and preserve the public GET contract.
-- [ ] `AUDIT-003` Skip a candidate that expires during its round and leave it out of playback history.
+- [x] `AUDIT-001` Issue the due regional poll after a same-cell refresh at the age limit.
+- [x] `AUDIT-002` Play all 66 locally prepared notes exactly once and preserve the public GET contract.
+- [x] `AUDIT-003` Skip a candidate that expires during its round and leave it out of playback history.

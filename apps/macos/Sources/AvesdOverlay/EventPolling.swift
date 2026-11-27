@@ -70,7 +70,8 @@ final class EventPolling: ObservableObject {
             do { try await Task.sleep(for: .seconds(max(Double(minutes * 60), earliest))) }
             catch { return }
             if preferences.usesRegion { region.refreshIfNeeded() }
-            let played = await poll(sources: sources, cell: { region.availableCell }, play: play)
+            let played = await poll(sources: sources, cell: { region.availableCell },
+                                    cellAfterRefresh: { await region.cellAfterRefresh() }, play: play)
             minutes = policy.nextInterval(after: minutes, played: played)
         }
     }
@@ -83,17 +84,17 @@ final class EventPolling: ObservableObject {
         }
     }
 
-    func poll(sources: () -> [MurmurSource], cell: () -> String?,
+    func poll(sources: () -> [MurmurSource], cell: () -> String?, cellAfterRefresh: (() async -> String?)? = nil,
               now: () -> Date = Date.init, play: Play) async -> Bool {
         let generationAtStart = triggerGeneration
         let configuredSources = sources()
         let initialCell = cell()
-        let configured = destinations(configuredSources, cell: initialCell)
+        var configured = destinations(configuredSources, cell: initialCell)
         pruneHistory()
 
         let roundStart = now()
         cooldowns = cooldowns.filter { $0.value > roundStart }
-        let ready = configured.filter { cooldowns[$0] == nil }
+        var ready = configured.filter { cooldowns[$0] == nil }
         let results = await withTaskGroup(of: (Destination, Outcome).self) { group in
             @MainActor func request(_ destination: Destination) {
                 if destination.isLocal {
@@ -119,6 +120,14 @@ final class EventPolling: ObservableObject {
             }
 
             for destination in ready { request(destination) }
+            if initialCell == nil, configuredSources.contains(where: { $0.enabled && $0.mode == .regional }),
+               let refreshedCell = await cellAfterRefresh?(), !Task.isCancelled {
+                let updated = destinations(configuredSources, cell: refreshedCell)
+                let newDestinations = updated.filter { !configured.contains($0) && (cooldowns[$0] ?? .distantPast) <= now() }
+                for destination in newDestinations { request(destination) }
+                ready = updated.filter { ready.contains($0) || newDestinations.contains($0) }
+                configured = updated
+            }
             var results: [Destination: Outcome] = [:]
             for await (source, outcome) in group { results[source] = outcome }
             return results

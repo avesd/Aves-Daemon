@@ -8,6 +8,13 @@ enum RegionSelection: Codable {
     case place(name: String, cell: String)
     case device(cell: String, updated: Date)
 
+    enum PollingSelection: Equatable { case device, fixed(String) }
+
+    var pollingSelection: PollingSelection {
+        if case .device = self { return .device }
+        return .fixed(cell)
+    }
+
     var cell: String {
         switch self {
         case .kyoto: "862e6140fffffff"
@@ -47,6 +54,20 @@ final class EventRegion: NSObject, ObservableObject, @preconcurrency CLLocationM
     var availableCell: String? {
         if case .device(_, let updated) = selection, locating || Date().timeIntervalSince(updated) >= Self.maxAge { return nil }
         return selection.cell
+    }
+
+    func cellAfterRefresh() async -> String? {
+        guard locating, !awaitingAuthorization else { return availableCell }
+        let (changes, continuation) = AsyncStream<Bool>.makeStream(bufferingPolicy: .bufferingNewest(1))
+        let observation = $locating.sink { continuation.yield($0) }
+        defer {
+            observation.cancel()
+            continuation.finish()
+        }
+        for await inProgress in changes where !inProgress {
+            return Task.isCancelled ? nil : availableCell
+        }
+        return nil
     }
 
     static func cell(for coordinate: CLLocationCoordinate2D) -> String? {

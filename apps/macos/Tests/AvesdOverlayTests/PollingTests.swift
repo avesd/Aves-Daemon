@@ -197,6 +197,48 @@ func localCandidateExpiringDuringTheRoundLeavesAnotherSourceEligible(explicitExp
     }
 }
 
+enum RefreshResult: CaseIterable {
+    case sameCell, changedCell, failed, cancelled
+}
+
+@MainActor
+@Test(arguments: RefreshResult.allCases)
+func dueRegionalPollWaitsForRefresh(result: RefreshResult) async throws {
+    try await withDefaults { defaults in
+        let events = LocalEventStore(url: FileManager.default.temporaryDirectory.appending(path: UUID().uuidString))
+        let fixed = MurmurSource(name: "Fixed", address: "https://fixed.test/event", mode: .fixed)
+        let regional = MurmurSource(name: "Regional", address: "https://regional.test", mode: .regional)
+        let feeds = Feeds()
+        let polling = EventPolling(defaults: defaults, localServerURL: URL(string: "http://localhost")!, localEvents: events,
+                                   fetch: { try await feeds.fetch($0) })
+        let old = RegionSelection.device(cell: RegionSelection.kyoto.cell, updated: Date().addingTimeInterval(-24 * 60 * 60))
+        defaults.set(try JSONEncoder().encode(old), forKey: "eventRegion")
+        let region = EventRegion(defaults: defaults)
+        var cell = region.availableCell
+        #expect(cell == nil)
+        let fresh = RegionSelection.device(cell: result == .changedCell ? "862830827ffffff" : old.cell, updated: Date())
+        #expect(fresh.pollingSelection == old.pollingSelection)
+        #expect(fresh.pollingSelection != RegionSelection.kyoto.pollingSelection)
+        let expectsRegional = result == .sameCell || result == .changedCell
+        let round = Task {
+            await polling.poll(sources: { [regional, fixed] }, cell: { cell }, cellAfterRefresh: {
+                if result == .cancelled { withUnsafeCurrentTask { $0?.cancel() } }
+                cell = result == .failed ? nil : fresh.cell
+                return cell
+            }) { data, _, resolve in
+                #expect(String(decoding: data, as: UTF8.self).contains(expectsRegional ? "regional.test" : "fixed.test"))
+                resolve(.shown)
+                return true
+            }
+        }
+        #expect(await round.value == (result != .cancelled))
+        let calls = await feeds.calls
+        #expect(calls.filter { $0.host == "regional.test" }.map(\.path) ==
+                (expectsRegional ? ["/v1/regions/\(fresh.cell)/event"] : []))
+        if result != .cancelled { #expect(calls.filter { $0.host == "fixed.test" }.count == 1) }
+    }
+}
+
 @MainActor
 @Test(.timeLimit(.minutes(1)))
 func localCandidateExpiringDuringReplacementLetsAnotherSourcePlay() async throws {

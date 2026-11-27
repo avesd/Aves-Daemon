@@ -104,7 +104,7 @@ final class OverlayApp: NSObject, NSApplicationDelegate {
         }
         var previousSources = preferences.sources
         scheduleSubscription = preferences.$sources.removeDuplicates()
-            .combineLatest(preferences.$polling.removeDuplicates(), region.$selection.map(\.cell).removeDuplicates(),
+            .combineLatest(preferences.$polling.removeDuplicates(), region.$selection.map(\.pollingSelection).removeDuplicates(),
                            localServer.$state.map(\.isRunning).removeDuplicates())
             .sink { [weak self] sources, _, _, _ in
                 guard let self else { return }
