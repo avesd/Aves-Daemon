@@ -39,7 +39,11 @@ The summary row provides a 20-point icon slot and a separate information slot. E
 | Turning tide | Saint-Malo at 16:08 | A moored boat drops with the tide and draws the line taut between its bow and the quay ring. |
 | Last train | Ueno Station at 23:54 | The destination and time flip to blank, and the last flap catches the light as it turns from 発 to 終. |
 
-By default the trail remains for five seconds. Rest the pointer on the summary for 150 ms to open the flight details. A fine line traces the frame clockwise from the aircraft type as the background fills in behind the stationary summary. The highlight fades at the end of the 460 ms transition. Hovering pauses dismissal. Moving away reverses the transition and resumes dismissal. Reduce Motion switches directly between the closed and open states. The panel passes clicks through and preserves keyboard focus. Starting another preview replaces the current one.
+The plane enters from outside the panel and its last contrail clears the right edge. The lighthouse, bridge tower, and other illustrated icons gradually appear in place. Once the gesture settles, the summary stays for the selected duration (five seconds by default), fading in place over the last half second.
+
+Rest the pointer on the summary for 150 ms, even during the opening gesture, to reveal the remaining text and open the details. A fine line traces the frame clockwise as the background fills in behind the stationary summary over 460 ms. Moving away closes the details and leaves the revealed text readable. Hovering during dismissal restores the summary smoothly from its current brightness. The panel passes clicks through and preserves keyboard focus.
+
+A new preview or incoming event gives the visible event a short fade before the next gesture begins. If several arrive during that fade, the newest takes its place. With Reduce Motion enabled, the complete summary appears in place, the details switch directly between closed and open, and replacements appear immediately.
 
 The click-through AppKit panel hosts a SwiftUI view. The summary stays anchored as the frame reveals the details below it. SwiftUI lays out the text and draws the plane and contrails in a Canvas.
 
@@ -59,7 +63,9 @@ The server and **Allow immediate display (trigger)** both start off. For pull-on
 | --- | --- |
 | `PUT /v1/events/{id}` | Prepare or update a candidate. The percent-encoded path ID must match the event ID. Returns `201` for a new candidate and `200` for an update. |
 | `GET /v1/regions/{cell}/event` | Use the official regional polling contract with any canonical resolution-six H3 cell and up to 64 repeated `played` IDs of at most 256 UTF-8 bytes each. Personal events apply in every region. Returns the most recently added eligible candidate (`200`), or `204` when there are none. Each read leaves the candidate available. |
-| `POST /v1/trigger` | Submit an event directly for immediate playback, including while another event is visible. Returns `200` with `status` set to `started` or `already_played`. Trigger uses the same three-hour playback history as polling. The next poll resumes after the last source selected by polling. An in-flight poll yields to the trigger. |
+| `POST /v1/trigger` | Submit an event for immediate playback, including while another event is visible. Returns `200` with `started` when the event is accepted or already waiting to appear. Returns `already_played` for an event shown within the past three hours. An in-flight poll yields to the trigger. |
+
+Polling and triggers share playback history. An event enters that history when its panel appears. If a newer request replaces a waiting event, the same ID can be submitted again immediately. Polling resumes after the last source whose event appeared.
 
 Use any supported event or send a `note` with a required `data.summary` and optional `data.detail` for hover. Each write accepts one JSON body up to 64 KiB with a content length. An optional top-level RFC 3339 `expires_at` sets the deadline. A candidate otherwise expires three hours after its first submission. Updating its content without an expiry preserves its deadline.
 

@@ -88,6 +88,7 @@ struct OverlayView: View {
                         .opacity(state.frame.fieldOpacity(0))
                 default:
                     ArtworkCanvas(commands: state.frame.icon, icon: true)
+                        .opacity(state.frame.fieldOpacity(0))
                 }
             }
         } information: {

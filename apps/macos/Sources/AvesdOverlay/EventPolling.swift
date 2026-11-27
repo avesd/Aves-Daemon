@@ -5,9 +5,11 @@ import Combine
 @MainActor
 final class EventPolling: ObservableObject {
     typealias Fetch = @Sendable (URLRequest) async throws -> (Data, URLResponse)
+    typealias Play = (_ data: Data, _ expires: TimeInterval?, _ resolve: @escaping (OverlaySession.Presentation) -> Void) -> Bool
     private struct Destination: Hashable, Sendable {
         let id: UUID
         let url: URL
+        let isLocal: Bool
 
         func pollURL(played: [String]) -> URL {
             guard !played.isEmpty, var address = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return url }
@@ -25,7 +27,7 @@ final class EventPolling: ObservableObject {
         }
     }
     private enum Outcome: Sendable {
-        case event(String, Data), empty, retry(Date), failed(String)
+        case event(id: String, data: Data, expires: TimeInterval? = nil), empty, retry(Date), failed(String)
 
         var summary: String {
             switch self {
@@ -39,23 +41,27 @@ final class EventPolling: ObservableObject {
 
     private let defaults: UserDefaults
     private let localServerURL: URL
+    private let localEvents: LocalEventStore
     private let fetch: Fetch
     private var cooldowns: [Destination: Date] = [:]
     private var lastPlayedSource: UUID?
     private var triggerGeneration: UInt = 0
     private var history: [String: Date]
     private var known: [String: [String: Date]]
+    private var pendingSources: [String: Set<String>] = [:]
     @Published private(set) var status: [UUID: String] = [:]
 
-    init(defaults: UserDefaults, localServerURL: URL, fetch: @escaping Fetch = { try await URLSession.shared.data(for: $0) }) {
+    init(defaults: UserDefaults, localServerURL: URL, localEvents: LocalEventStore,
+         fetch: @escaping Fetch = { try await URLSession.shared.data(for: $0) }) {
         self.defaults = defaults
         self.localServerURL = localServerURL
+        self.localEvents = localEvents
         self.fetch = fetch
         history = defaults.dictionary(forKey: "recentlyPlayedEvents") as? [String: Date] ?? [:]
         known = defaults.dictionary(forKey: "playedEventsBySource") as? [String: [String: Date]] ?? [:]
     }
 
-    func run(preferences: DaemonPreferences, region: EventRegion, sources: () -> [MurmurSource], play: (Data) -> Bool) async {
+    func run(preferences: DaemonPreferences, region: EventRegion, sources: () -> [MurmurSource], play: Play) async {
         let policy = preferences.polling
         var minutes = policy.base
         while !Task.isCancelled {
@@ -71,27 +77,48 @@ final class EventPolling: ObservableObject {
 
     private func destinations(_ sources: [MurmurSource], cell: String?) -> [Destination] {
         sources.compactMap { source in
-            source.endpoint(cell: cell, localServerURL: localServerURL).map { Destination(id: source.id, url: $0) }
+            let isLocal = source.mode == .local
+            return source.endpoint(cell: isLocal ? nil : cell, localServerURL: localServerURL)
+                .map { Destination(id: source.id, url: $0, isLocal: isLocal) }
         }
     }
 
-    func poll(sources: () -> [MurmurSource], cell: () -> String?, play: (Data) -> Bool) async -> Bool {
+    func poll(sources: () -> [MurmurSource], cell: () -> String?,
+              now: () -> Date = Date.init, play: Play) async -> Bool {
         let generationAtStart = triggerGeneration
-        let configured = destinations(sources(), cell: cell())
+        let configuredSources = sources()
+        let initialCell = cell()
+        let configured = destinations(configuredSources, cell: initialCell)
         pruneHistory()
 
-        let now = Date()
-        cooldowns = cooldowns.filter { $0.value > now }
+        let roundStart = now()
+        cooldowns = cooldowns.filter { $0.value > roundStart }
         let ready = configured.filter { cooldowns[$0] == nil }
         let results = await withTaskGroup(of: (Destination, Outcome).self) { group in
-            for destination in ready {
-                let ids = (known[destination.historyScope] ?? [:]).filter { $0.key.utf8.count <= 256 }
-                    .sorted { $0.value == $1.value ? $0.key < $1.key : $0.value > $1.value }
-                    .prefix(64).map(\.key)
-                let request = URLRequest(url: destination.pollURL(played: ids), cachePolicy: .reloadIgnoringLocalCacheData,
-                                         timeoutInterval: 30)
-                group.addTask { [fetch] in (destination, await Self.request(request, fetch: fetch)) }
+            @MainActor func request(_ destination: Destination) {
+                if destination.isLocal {
+                    let played = Set(history.keys)
+                    group.addTask { [localEvents] in
+                        do {
+                            guard let candidate = try await localEvents.nextCandidate(excluding: played, now: roundStart) else {
+                                return (destination, .empty)
+                            }
+                            return (destination, .event(id: candidate.id, data: candidate.data, expires: candidate.expires))
+                        } catch {
+                            return (destination, .failed("HTTP 503"))
+                        }
+                    }
+                } else {
+                    let ids = (known[destination.historyScope] ?? [:]).filter { $0.key.utf8.count <= 256 }
+                        .sorted { $0.value == $1.value ? $0.key < $1.key : $0.value > $1.value }
+                        .prefix(64).map(\.key)
+                    let request = URLRequest(url: destination.pollURL(played: ids), cachePolicy: .reloadIgnoringLocalCacheData,
+                                             timeoutInterval: 30)
+                    group.addTask { [fetch] in (destination, await Self.request(request, fetch: fetch)) }
+                }
             }
+
+            for destination in ready { request(destination) }
             var results: [Destination: Outcome] = [:]
             for await (source, outcome) in group { results[source] = outcome }
             return results
@@ -103,50 +130,85 @@ final class EventPolling: ObservableObject {
             let rotated = configured.suffix(from: last + 1) + configured.prefix(through: last)
             order = rotated.filter { order.contains($0) }
         }
-        var played = false
+        var suppliers: [String: Set<String>] = [:]
         for source in order {
             guard let result = results[source] else { continue }
             status[source.id] = result.summary
             switch result {
             case .retry(let date):
                 cooldowns[source] = date
-            case .event(let id, let data):
-                if generationAtStart == triggerGeneration && history[id] == nil && !played && play(data) {
-                    history[id] = Date()
-                    lastPlayedSource = source.id
-                    played = true
-                    status[source.id] = "Played an event"
+            case .event(let id, _, let expires) where expires.map({ $0 > now().timeIntervalSince1970 }) ?? true:
+                if registerSupplier(source.historyScope, for: id) == nil {
+                    suppliers[id, default: []].insert(source.historyScope)
                 }
             default: break
             }
         }
-        // Share a played ID with a source only after that source supplied it.
-        for source in order {
-            if case .event(let id, _) = results[source], let date = history[id] {
-                known[source.historyScope, default: [:]][id] = date
-            }
-        }
         saveHistory()
-        return played
+        for source in order {
+            guard !Task.isCancelled, generationAtStart == triggerGeneration else { return false }
+            guard case .event(let id, let data, let expires) = results[source],
+                  expires.map({ $0 > now().timeIntervalSince1970 }) ?? true, let scopes = suppliers[id] else { continue }
+            let result: OverlaySession.Presentation? = await withCheckedContinuation { reply in
+                let accepted = requestPlayback(id: id, data: data, scopes: scopes, expires: expires, play: play) { result in
+                    if result == .shown {
+                        self.lastPlayedSource = source.id
+                        if self.status[source.id] != nil { self.status[source.id] = SettingsText.pollPlayed.string }
+                    }
+                    reply.resume(returning: result)
+                }
+                if !accepted { reply.resume(returning: nil) }
+            }
+            if result == .shown { return true }
+            if result == .superseded { return false }
+        }
+        return false
     }
 
     enum TriggerResult: String { case started, alreadyPlayed = "already_played", unavailable }
 
-    func trigger(id: String, data: Data, play: (Data) -> Bool) -> TriggerResult {
+    func trigger(id: String, data: Data, play: Play) -> TriggerResult {
         pruneHistory()
-        let result: TriggerResult
-        if history[id] != nil {
-            result = .alreadyPlayed
-        } else {
-            guard play(data) else { return .unavailable }
-            history[id] = Date()
-            triggerGeneration &+= 1
-            result = .started
+        let scope = Destination(id: MurmurSource.local.id, url: localServerURL, isLocal: true).historyScope
+        let existing = registerSupplier(scope, for: id)
+        if existing == .alreadyPlayed {
+            saveHistory()
+            return .alreadyPlayed
         }
-        let scope = Destination(id: MurmurSource.local.id, url: localServerURL).historyScope
-        known[scope, default: [:]][id] = history[id]
-        saveHistory()
-        return result
+        if existing == nil, !requestPlayback(id: id, data: data, scopes: [scope], play: play) {
+            return .unavailable
+        }
+        triggerGeneration &+= 1
+        return .started
+    }
+
+    private func registerSupplier(_ scope: String, for id: String) -> TriggerResult? {
+        if let date = history[id] {
+            known[scope, default: [:]][id] = date
+            return .alreadyPlayed
+        }
+        if pendingSources[id] != nil {
+            pendingSources[id]?.insert(scope)
+            return .started
+        }
+        return nil
+    }
+
+    private func requestPlayback(id: String, data: Data, scopes: Set<String>, expires: TimeInterval? = nil, play: Play,
+                                 onResolution: @escaping (OverlaySession.Presentation) -> Void = { _ in }) -> Bool {
+        pendingSources[id] = scopes
+        let accepted = play(data, expires) { [self] result in
+            let suppliers = pendingSources.removeValue(forKey: id) ?? []
+            if result == .shown {
+                let date = Date()
+                history[id] = date
+                for scope in suppliers { known[scope, default: [:]][id] = date }
+                saveHistory()
+            }
+            onResolution(result)
+        }
+        if !accepted { pendingSources[id] = nil }
+        return accepted
     }
 
     private func pruneHistory() {
@@ -176,7 +238,7 @@ final class EventPolling: ObservableObject {
                 guard let event = try? JSONDecoder().decode(Header.self, from: data), !event.id.isEmpty else {
                     return .failed(SettingsText.pollInvalidEvent.string)
                 }
-                return .event(event.id, data)
+                return .event(id: event.id, data: data)
             case 204: return .empty
             case 503, 429:
                 if let header = http.value(forHTTPHeaderField: "Retry-After") {

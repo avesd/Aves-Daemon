@@ -112,6 +112,10 @@ pub extern "C" fn avesd_overlay_advance(session: &mut Session, ms: f64, inside: 
     session.playback.advance(ms, inside)
 }
 #[unsafe(no_mangle)]
+pub extern "C" fn avesd_overlay_begin_replacement(session: &mut Session, ms: f64) {
+    session.playback.begin_replacement(ms);
+}
+#[unsafe(no_mangle)]
 pub extern "C" fn avesd_overlay_advance_changes(
     session: &mut Session,
     ms: f64,

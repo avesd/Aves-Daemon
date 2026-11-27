@@ -2,6 +2,12 @@ import Foundation
 import SQLite3
 
 actor LocalEventStore {
+    struct Candidate {
+        let id: String
+        let expires: TimeInterval
+        let data: Data
+    }
+
     private let url: URL
     private var database: EventDatabase?
 
@@ -20,6 +26,10 @@ actor LocalEventStore {
 
     func candidate(excluding played: [String], now: Date = .now) throws -> Data? {
         try connection().candidate(excluding: played, now: now)
+    }
+
+    func nextCandidate(excluding played: Set<String>, now: Date) throws -> Candidate? {
+        try connection().nextCandidate(excluding: played, now: now)
     }
 }
 
@@ -88,6 +98,27 @@ private final class EventDatabase {
             guard bound == SQLITE_OK, sqlite3_step(query) == SQLITE_DONE else { throw StoreError.database }
         }
         return created
+    }
+
+    func nextCandidate(excluding played: Set<String>, now: Date) throws -> LocalEventStore.Candidate? {
+        try removeExpired(at: now)
+        return try statement("SELECT id, expires, event FROM events ORDER BY rowid DESC") { query in
+            while true {
+                switch sqlite3_step(query) {
+                case SQLITE_ROW:
+                    guard let idBytes = sqlite3_column_text(query, 0) else { throw StoreError.database }
+                    let id = String(decoding: UnsafeBufferPointer(start: idBytes,
+                                                                  count: Int(sqlite3_column_bytes(query, 0))), as: UTF8.self)
+                    if played.contains(id) { continue }
+                    let expires = sqlite3_column_double(query, 1)
+                    guard let bytes = sqlite3_column_blob(query, 2) else { throw StoreError.database }
+                    let data = Data(bytes: bytes, count: Int(sqlite3_column_bytes(query, 2)))
+                    return LocalEventStore.Candidate(id: id, expires: expires, data: data)
+                case SQLITE_DONE: return nil
+                default: throw StoreError.database
+                }
+            }
+        }
     }
 
     func candidate(excluding played: [String], now: Date) throws -> Data? {

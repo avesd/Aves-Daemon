@@ -57,6 +57,10 @@ private final class PlaybackHandle {
 
     deinit { avesd_overlay_destroy(pointer) }
 
+    func beginReplacement(elapsed: TimeInterval) {
+        avesd_overlay_begin_replacement(pointer, elapsed * 1000)
+    }
+
     func advance(elapsed: TimeInterval, inside: Bool) -> OverlayFrame? {
         let changes = avesd_overlay_advance_changes(pointer, elapsed * 1000, inside)
         guard changes.panel || changes.icon || changes.scenery else { return nil }
@@ -83,7 +87,12 @@ final class OverlaySession: ObservableObject {
         case preview
         case event(Data, source: Source = .poll)
     }
+    enum Presentation { case shown, superseded, expired }
+
+    private let now: () -> Date
     private var handle: PlaybackHandle?
+    private var pending: (handle: PlaybackHandle, expires: TimeInterval?, resolve: (Presentation) -> Void)?
+    private var started = ContinuousClock.now
     var onFirstExpansion: (() -> Void)?
     @Published private(set) var frame = OverlayFrame()
     @Published private(set) var logo: NSImage?
@@ -91,13 +100,39 @@ final class OverlaySession: ObservableObject {
     var cardHeight = OverlayLayout.headerHeight
     var animating: Bool { frame.panel.animating }
 
+    init(now: @escaping () -> Date = Date.init) { self.now = now }
+
+    /// Each accepted request resolves once when it appears, expires, or a newer request supersedes it.
     @discardableResult
-    func reset(_ input: Input, reduced: Bool, duration: TimeInterval, seed: UInt64 = .random(in: .min ... .max)) -> Bool {
+    func play(_ input: Input, reduced: Bool, duration: TimeInterval, seed: UInt64 = .random(in: .min ... .max),
+              at time: ContinuousClock.Instant = .now, expires: TimeInterval? = nil,
+              resolve: @escaping (Presentation) -> Void = { _ in }) -> Bool {
         guard let next = PlaybackHandle(input, reduced: reduced, duration: duration, seed: seed) else { return false }
-        handle = next
+        let displaced = pending
+        pending = (next, expires, resolve)
+        displaced?.resolve(.superseded)
+        if let handle, frame.panel.alive, frame.panel.progress > 0, !reduced {
+            handle.beginReplacement(elapsed: started.duration(to: time).timeInterval)
+        } else {
+            startPending(at: time)
+        }
+        return true
+    }
+
+    @discardableResult
+    private func startPending(at time: ContinuousClock.Instant) -> Bool {
+        guard let pending else { return false }
+        self.pending = nil
+        if let expires = pending.expires, expires <= now().timeIntervalSince1970 {
+            pending.resolve(.expired)
+            return false
+        }
+        handle = pending.handle
+        started = time
         onFirstExpansion = nil
         logo = nil
-        frame = next.frame
+        frame = pending.handle.frame
+        pending.resolve(.shown)
         return true
     }
 
@@ -106,17 +141,26 @@ final class OverlaySession: ObservableObject {
         logo = NSImage(data: data)
     }
 
-    func advance(elapsed: TimeInterval, pointer: CGPoint) -> Bool {
+    func advance(to time: ContinuousClock.Instant = .now, pointer: CGPoint) -> Bool {
         guard let handle else { return false }
-        let height = frame.panel.expansion > 0 ? cardHeight : OverlayLayout.headerHeight
+        let header = OverlayLayout.headerHeight
+        let height = header + (cardHeight - header) * frame.panel.open_fraction
         let bounds = CGRect(origin: OverlayLayout.origin, size: CGSize(width: OverlayLayout.width, height: height))
-        if let next = handle.advance(elapsed: elapsed, inside: bounds.contains(pointer)) {
+        if let next = handle.advance(elapsed: started.duration(to: time).timeInterval, inside: bounds.contains(pointer)) {
+            if !next.panel.alive, startPending(at: time) { return true }
             frame = next
-            if next.panel.open_fraction > 0, let onFirstExpansion {
+            if pending == nil, next.panel.open_fraction > 0, let onFirstExpansion {
                 self.onFirstExpansion = nil
                 onFirstExpansion()
             }
         }
         return frame.panel.alive
+    }
+}
+
+private extension Duration {
+    var timeInterval: TimeInterval {
+        let parts = components
+        return Double(parts.seconds) + Double(parts.attoseconds) / 1e18
     }
 }

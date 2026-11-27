@@ -5,6 +5,12 @@ use super::{
 };
 use avesd_events::Event;
 
+const HOVER_DWELL: f64 = 0.15;
+const OPEN_DURATION: f64 = 0.46;
+const SCENERY_CLEARED: f64 = 0.30;
+const RECOVERY_DURATION: f64 = 0.20;
+const REPLACEMENT_DURATION: f64 = 0.16;
+
 #[derive(Clone, Copy, Default, Debug, PartialEq)]
 #[repr(C)]
 pub struct Panel {
@@ -35,13 +41,22 @@ impl FrameChanges {
     }
 }
 
+#[derive(Clone, Copy)]
+enum Fade {
+    Timed,
+    Recover { since: f64, from: f64 },
+    Replace { since: f64, from: f64 },
+}
+
 pub struct Playback {
     effect: Effect,
     reduced: bool,
     variation: f64,
     remaining: f64,
-    hovering: f64,
-    dismissal: f64,
+    fade_duration: f64,
+    fade: Fade,
+    hover_since: Option<f64>,
+    reading: f64,
     last_elapsed: f64,
     layout: Layout,
     pub icon: Canvas,
@@ -64,8 +79,10 @@ impl Playback {
             reduced,
             variation: random.range(-1., 1.),
             remaining: hold_ms / 1000.,
-            hovering: 0.,
-            dismissal: 0.,
+            fade_duration: (hold_ms / 1000.).min(0.5),
+            fade: Fade::Timed,
+            hover_since: None,
+            reading: 0.,
             last_elapsed: 0.,
             layout,
             sampled: Canvas::default(),
@@ -86,9 +103,83 @@ impl Playback {
         self.advance_changes(elapsed_ms, inside).any()
     }
 
+    /// Retire the displayed frame once, even if several events arrive during the fade.
+    pub fn begin_replacement(&mut self, elapsed_ms: f64) {
+        if self.panel.alive && elapsed_ms.is_finite() && !matches!(self.fade, Fade::Replace { .. })
+        {
+            self.fade = Fade::Replace {
+                since: (elapsed_ms / 1000.).max(self.last_elapsed),
+                from: self.panel.opacity,
+            };
+        }
+    }
+
+    fn advance_hover(&mut self, elapsed: f64, previous: f64, inside: bool) {
+        if !inside {
+            self.hover_since = None;
+            self.panel.expansion = if self.reduced {
+                0.
+            } else {
+                (self.panel.expansion - (elapsed - previous) / 0.368).max(0.)
+            };
+            return;
+        }
+        if self.remaining < self.fade_duration {
+            self.fade = Fade::Recover {
+                since: elapsed,
+                from: self.panel.opacity,
+            };
+        }
+        self.remaining = self.remaining.max(1.2);
+        let entered = *self.hover_since.get_or_insert(elapsed);
+        let opens_at = if self.panel.expansion > 0. {
+            previous
+        } else {
+            previous.max(entered + HOVER_DWELL)
+        };
+        if elapsed >= opens_at {
+            self.panel.expansion = if self.reduced {
+                1.
+            } else {
+                (self.panel.expansion + (elapsed - opens_at) / OPEN_DURATION).min(1.)
+            };
+        }
+    }
+
+    fn advance_visibility(&mut self, elapsed: f64, previous: f64, inside: bool, settled_at: f64) {
+        let replacing = matches!(self.fade, Fade::Replace { .. });
+        if !replacing {
+            self.advance_hover(elapsed, previous, inside);
+            // A deliberate hover commits the summary, even if the details close halfway through.
+            self.reading = if self.reading > 0. {
+                (self.reading + (elapsed - previous) / OPEN_DURATION).min(1.)
+            } else {
+                self.panel.expansion
+            };
+        }
+        if !inside || replacing {
+            self.remaining -= (elapsed - previous.max(settled_at)).max(0.);
+        }
+        let timed = (self.remaining / self.fade_duration).clamp(0., 1.);
+        self.panel.opacity = match self.fade {
+            Fade::Timed => timed,
+            Fade::Recover { since, from } => {
+                let progress = eased(elapsed - since, 0., RECOVERY_DURATION);
+                if progress >= 1. {
+                    self.fade = Fade::Timed;
+                }
+                timed.min(from + (1. - from) * progress)
+            }
+            Fade::Replace { since, from } => {
+                timed.min(from * (1. - eased(elapsed - since, 0., REPLACEMENT_DURATION)))
+            }
+        };
+        self.panel.alive = self.remaining > 0. && !(replacing && self.panel.opacity <= 0.);
+    }
+
     pub fn advance_changes(&mut self, elapsed_ms: f64, inside: bool) -> FrameChanges {
         let mut changes = FrameChanges::default();
-        if !elapsed_ms.is_finite() {
+        if !self.panel.alive || !elapsed_ms.is_finite() {
             return changes;
         }
         let elapsed = (elapsed_ms / 1000.).max(self.last_elapsed);
@@ -99,75 +190,46 @@ impl Playback {
         let t = if self.reduced {
             duration
         } else {
-            (elapsed - 0.15).clamp(0., duration)
+            elapsed.min(duration)
         };
+        let previous_reading = self.reading;
+        self.advance_visibility(
+            elapsed,
+            previous,
+            inside,
+            if self.reduced { 0. } else { duration },
+        );
         let panel = &mut self.panel;
         panel.progress = t / duration;
-        let previous_dismissal = self.dismissal;
-        if t >= self.effect.ready() {
-            let ready_at = if self.reduced {
-                0.
-            } else {
-                0.15 + self.effect.ready()
-            };
-            let delta = (elapsed - previous.max(ready_at)).max(0.);
-            if inside {
-                self.hovering += delta;
-                self.remaining = self.remaining.max(1.2);
-            } else {
-                self.hovering = 0.;
-                if t >= duration {
-                    let settled_at = if self.reduced { 0. } else { 0.15 + duration };
-                    self.remaining -= (elapsed - previous.max(settled_at)).max(0.);
-                }
-            }
-            if inside && (old.expansion > 0. || self.hovering >= 0.15) {
-                let active = if old.expansion > 0. {
-                    delta
-                } else {
-                    delta.min(self.hovering - 0.15)
-                };
-                panel.expansion = if self.reduced {
-                    1.
-                } else {
-                    (old.expansion + active / 0.46).min(1.)
-                };
-            } else if !inside {
-                panel.expansion = if self.reduced {
-                    0.
-                } else {
-                    (old.expansion - delta / 0.368).max(0.)
-                };
-            }
-            self.dismissal = self.dismissal.max(panel.expansion);
-            panel.opacity = (self.remaining / 0.5).clamp(0., 1.);
-        }
         panel.open_fraction = eased(panel.expansion, 0.10, 0.95);
         panel.surface_opacity = eased(panel.expansion, 0.12, 0.96);
         panel.traced_fraction = eased(panel.expansion, 0., 0.86);
         panel.trace_opacity = 0.9 * (1. - eased(panel.expansion, 0.76, 1.));
-        panel.reveal_edge = if matches!(self.effect, Effect::Flyover) && t < duration {
-            (self.layout.width + 26.) * panel.progress - 16.
-        } else {
-            self.layout.width
-        };
-        panel.alive = self.remaining > 0.;
-        panel.animating =
-            t < duration || (panel.expansion > 0. && panel.expansion < 1.) || panel.opacity < 1.;
+        let edge = self.effect.reveal_edge(self.layout.width, panel.progress);
+        let reveal = eased(self.reading, SCENERY_CLEARED, 0.76);
+        panel.reveal_edge = edge + (self.layout.width - edge) * reveal;
+        panel.animating = panel.alive
+            && (t < duration
+                || (panel.expansion < 1. && (inside || panel.expansion > 0.))
+                || !matches!(self.fade, Fade::Timed)
+                || panel.opacity < 1.);
         let time_changed = panel.progress != old.progress;
         if time_changed && (old.progress < 0. || !matches!(self.effect, Effect::BridgeLift)) {
             self.effect
                 .draw_icon(t, self.variation, &self.layout, &mut self.sampled);
             changes.icon = self.icon.replace_if_changed(&mut self.sampled);
         }
-        if time_changed || (t < duration && previous_dismissal != self.dismissal) {
-            panel.fields = self.effect.draw_scenery(
-                t,
-                self.variation,
-                self.dismissal,
-                &self.layout,
-                &mut self.sampled,
-            );
+        if time_changed || (t < duration && previous_reading != self.reading) {
+            panel.fields = self
+                .effect
+                .draw_scenery(
+                    t,
+                    self.variation,
+                    eased(self.reading, 0., SCENERY_CLEARED),
+                    &self.layout,
+                    &mut self.sampled,
+                )
+                .map(|opacity| opacity + (1. - opacity) * reveal);
             changes.scenery = self.scenery.replace_if_changed(&mut self.sampled);
         }
         changes.panel = *panel != old;

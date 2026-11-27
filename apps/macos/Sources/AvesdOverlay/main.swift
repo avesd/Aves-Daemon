@@ -30,15 +30,18 @@ final class OverlayApp: NSObject, NSApplicationDelegate {
     private let region: EventRegion
     private let preferences: DaemonPreferences
     private let eventPolling: EventPolling
+    private let localEvents: LocalEventStore
     private let navigation = SettingsNavigation()
     private lazy var localServer = LocalMurmurServer(
         port: environment.channel.localPort,
-        database: environment.supportDirectory.appending(path: "local-server/events.sqlite"),
+        events: localEvents,
         credential: LocalServerToken(service: environment.localTokenService).value(reset:),
         allowsTrigger: { [weak self] in self?.preferences.allowsTriggers == true },
         trigger: { [weak self] id, event in
             guard let self else { return .unavailable }
-            return eventPolling.trigger(id: id, data: event) { showOverlay(.event($0, source: .localTrigger)) }
+            return eventPolling.trigger(id: id, data: event) { data, expires, resolve in
+                showOverlay(.event(data, source: .localTrigger), expires: expires, resolve: resolve)
+            }
         },
         onReady: { [weak self] in self?.preferences.addLocalSourceIfNeeded() }
     )
@@ -60,7 +63,8 @@ final class OverlayApp: NSObject, NSApplicationDelegate {
         let defaults = environment.preferences
         region = EventRegion(defaults: defaults)
         preferences = DaemonPreferences(defaults: defaults)
-        eventPolling = EventPolling(defaults: defaults, localServerURL: environment.channel.localServerURL)
+        localEvents = LocalEventStore(url: environment.supportDirectory.appending(path: "local-server/events.sqlite"))
+        eventPolling = EventPolling(defaults: defaults, localServerURL: environment.channel.localServerURL, localEvents: localEvents)
         analytics = UsageAnalytics(isAvailable: environment.channel.allowsUsageStatistics, defaults: defaults)
         updates = SoftwareUpdates(environment: environment)
         cache = environment.cachesDirectory.map { AirlineLogoCache(directory: $0.appending(path: "airline-logos")) }
@@ -115,8 +119,8 @@ final class OverlayApp: NSObject, NSApplicationDelegate {
                     guard let self else { return }
                     await eventPolling.run(preferences: preferences, region: region, sources: {
                         preferences.sources.filter { $0.mode != .local || localServer.state.isRunning }
-                    }) { [weak self] in
-                        self?.showOverlay(.event($0)) ?? false
+                    }) { [weak self] data, expires, resolve in
+                        self?.showOverlay(.event(data), expires: expires, resolve: resolve) ?? false
                     }
                 }
             }
@@ -194,11 +198,32 @@ final class OverlayApp: NSObject, NSApplicationDelegate {
         try await cache?.clear()
     }
 
-    private func showOverlay(_ input: OverlaySession.Input) -> Bool {
+    private func showOverlay(_ input: OverlaySession.Input, expires: TimeInterval? = nil,
+                             resolve: @escaping (OverlaySession.Presentation) -> Void = { _ in }) -> Bool {
         guard let screen = NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) }) ?? NSScreen.main else { return false }
         let reduced = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
-        guard state.reset(input, reduced: reduced, duration: TimeInterval(preferences.displaySeconds)) else { return false }
+        guard state.play(input, reduced: reduced, duration: TimeInterval(preferences.displaySeconds), expires: expires,
+                         resolve: { [weak self] result in
+            if result == .shown { self?.presentOverlay(input, on: screen) }
+            resolve(result)
+        }) else { return false }
         playback?.cancel()
+        playback = Task {
+            while !Task.isCancelled {
+                let location = panel.mouseLocationOutsideOfEventStream
+                let mouse = CGPoint(x: location.x, y: panel.frame.height - location.y)
+                guard state.advance(pointer: mouse) else {
+                    panel.orderOut(nil)
+                    return
+                }
+                do { try await Task.sleep(for: .milliseconds(state.animating ? 16 : 60)) }
+                catch { return }
+            }
+        }
+        return true
+    }
+
+    private func presentOverlay(_ input: OverlaySession.Input, on screen: NSScreen) {
         logoLookup?.cancel()
         let frame = screen.visibleFrame
         panel.setFrameTopLeftPoint(NSPoint(x: frame.maxX - panel.frame.width, y: frame.maxY - 32))
@@ -213,31 +238,6 @@ final class OverlayApp: NSObject, NSApplicationDelegate {
             }
             warmLogos()
         }
-
-        playback = Task {
-            let clock = ContinuousClock()
-            let start = clock.now
-            while !Task.isCancelled {
-                let now = clock.now
-                let elapsed = start.duration(to: now).timeInterval
-                let location = panel.mouseLocationOutsideOfEventStream
-                let mouse = CGPoint(x: location.x, y: panel.frame.height - location.y)
-                guard state.advance(elapsed: elapsed, pointer: mouse) else {
-                    panel.orderOut(nil)
-                    return
-                }
-                do { try await Task.sleep(for: .milliseconds(state.animating ? 16 : 60)) }
-                catch { return }
-            }
-        }
-        return true
-    }
-}
-
-private extension Duration {
-    var timeInterval: TimeInterval {
-        let parts = components
-        return Double(parts.seconds) + Double(parts.attoseconds) / 1e18
     }
 }
 

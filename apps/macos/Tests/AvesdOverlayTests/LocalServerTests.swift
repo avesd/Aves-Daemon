@@ -42,17 +42,19 @@ private func start(_ server: LocalMurmurServer) async throws -> URL {
         let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: directory) }
         let database = directory.appending(path: "events.sqlite")
+        let events = LocalEventStore(url: database)
         let prefs = DaemonPreferences(defaults: defaults)
         var handleTrigger: (String, Data) -> EventPolling.TriggerResult = { _, _ in .unavailable }
         let overlay = OverlaySession()
         var key = "first"
         var presentations = 0
-        @MainActor func show(_ data: Data) -> Bool {
-            guard overlay.reset(.event(data), reduced: true, duration: 3) else { return false }
-            presentations += 1
-            return true
+        @MainActor func show(_ data: Data, expires: TimeInterval?, resolve: @escaping (OverlaySession.Presentation) -> Void) -> Bool {
+            overlay.play(.event(data), reduced: true, duration: 3, expires: expires) { result in
+                if result == .shown { presentations += 1 }
+                resolve(result)
+            }
         }
-        let server = LocalMurmurServer(port: 0, database: database, credential: { reset in
+        let server = LocalMurmurServer(port: 0, events: events, credential: { reset in
             if reset { key = "second" }
             return key
         }, allowsTrigger: { prefs.allowsTriggers },
@@ -60,7 +62,7 @@ private func start(_ server: LocalMurmurServer) async throws -> URL {
         defer { server.stop() }
         #expect(!prefs.localServerEnabled && !prefs.allowsTriggers)
         let base = try await start(server)
-        let polling = EventPolling(defaults: defaults, localServerURL: base)
+        let polling = EventPolling(defaults: defaults, localServerURL: base, localEvents: events)
         handleTrigger = { polling.trigger(id: $0, data: $1, play: show) }
         #expect(prefs.sources.map(\.mode) == [.regional, .local])
         let feed = "/v1/regions/862e6140fffffff/event"
@@ -104,7 +106,8 @@ private func start(_ server: LocalMurmurServer) async throws -> URL {
         #expect(try await request(base, feed + "?played=build%2F%2B42").code == 204)
 
         server.stop()
-        let replay = EventPolling(defaults: defaults, localServerURL: base).trigger(id: "finish", data: urgent, play: show)
+        let replay = EventPolling(defaults: defaults, localServerURL: base, localEvents: events)
+            .trigger(id: "finish", data: urgent, play: show)
         #expect(replay == .alreadyPlayed && presentations == 2)
         let reopened = DaemonPreferences(defaults: defaults)
         #expect(reopened.sources.map(\.mode) == [.local, .regional])

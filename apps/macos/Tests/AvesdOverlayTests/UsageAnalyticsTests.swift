@@ -76,11 +76,13 @@ import Testing
         let note = Data(#"{"id":"private-id","kind":"note","occurred_at":"2026-01-01T12:00:00Z","data":{"summary":"private text"}}"#.utf8)
         let overlay = OverlaySession()
         let input = OverlaySession.Input.event(note, source: .localTrigger)
-        try #require(overlay.reset(input, reduced: true, duration: 5))
-        overlay.onFirstExpansion = analytics.overlayShown(input)
+        let start = ContinuousClock.now
+        try #require(overlay.play(input, reduced: true, duration: 5, at: start) { result in
+            if result == .shown { overlay.onFirstExpansion = analytics.overlayShown(input) }
+        })
         let inside = CGPoint(x: OverlayLayout.origin.x + 1, y: OverlayLayout.origin.y + 1)
-        for (time, point) in [(0.3, inside), (0.6, .zero), (0.9, inside)] {
-            try #require(overlay.advance(elapsed: time, pointer: point))
+        for (time, point) in [(0.1, inside), (0.3, inside), (0.6, .zero), (0.9, inside), (1.2, inside)] {
+            try #require(overlay.advance(to: start + .seconds(time), pointer: point))
         }
         let expandPreview = analytics.overlayShown(.preview)
         analytics.setEnabled(false)

@@ -10,6 +10,12 @@ use super::frame::{Canvas, eased};
 use avesd_events::{Payload, turning_tide::Turn};
 use rain::RainShower;
 
+const SUNRISE_CUES: [f64; 3] = [4.25, 4.50, 4.87];
+const BRIDGE_LIFT_CUES: [f64; 3] = [4.81, 5.04, 5.35];
+const TURNING_TIDE_CUES: [f64; 3] = [5.35, 5.62, 5.97];
+const LAST_TRAIN_CUES: [f64; 3] = [2.72, 2.94, 3.23];
+const FIELD_FADE: f64 = 0.42;
+
 pub enum Effect {
     Note,
     Flyover,
@@ -43,7 +49,7 @@ impl Effect {
     pub fn duration(&self) -> f64 {
         match self {
             Self::Note => 0.65,
-            Self::Flyover => 2.2,
+            Self::Flyover => 2.45,
             Self::Rain(r) => r.duration_ms / 1000.,
             Self::Sunrise => 6.1,
             Self::BridgeLift => 5.85,
@@ -51,17 +57,23 @@ impl Effect {
             Self::LastTrain { .. } => 3.95,
         }
     }
-    fn cues(&self) -> Option<[f64; 3]> {
-        Some(match self {
-            Self::Sunrise => [4.25, 4.50, 4.87],
-            Self::BridgeLift => [4.81, 5.04, 5.35],
-            Self::TurningTide { .. } => [5.35, 5.62, 5.97],
-            Self::LastTrain { .. } => [2.72, 2.94, 3.23],
-            _ => return None,
-        })
-    }
+    /// When the uninterrupted gesture has revealed its main summary fields.
     pub fn ready(&self) -> f64 {
-        self.cues().map_or(self.duration(), |c| c[1] + 0.42)
+        let cues = match self {
+            Self::Note | Self::Flyover | Self::Rain(_) => return self.duration(),
+            Self::Sunrise => SUNRISE_CUES,
+            Self::BridgeLift => BRIDGE_LIFT_CUES,
+            Self::TurningTide { .. } => TURNING_TIDE_CUES,
+            Self::LastTrain { .. } => LAST_TRAIN_CUES,
+        };
+        cues[1] + FIELD_FADE
+    }
+    pub(super) fn reveal_edge(&self, width: f64, progress: f64) -> f64 {
+        if matches!(self, Self::Flyover) {
+            (flyover::center_x(width, progress) - 16.).min(width)
+        } else {
+            width
+        }
     }
     pub fn sample(
         &self,
@@ -100,42 +112,59 @@ impl Effect {
     ) -> [f64; 4] {
         scenery.0.clear();
         let active = t < self.duration();
-        if matches!(self, Self::Note) {
-            return [1., eased(t, 0.10, 0.55), 1., 1.];
-        }
-        if let Self::Rain(r) = self {
-            return r.draw(t, active, scenery);
-        }
-        if matches!(self, Self::Flyover) {
-            if active && t > 0. {
-                flyover::scenery(
-                    scenery,
-                    (layout.width + 26.) * t / self.duration() - layout.anchor_x,
-                );
-            }
-            return [1.; 4];
+        let visible = active && dismissal < 1.;
+        if visible && dismissal > 0. && !matches!(self, Self::Note) {
+            scenery.opacity(1. - dismissal);
         }
         let room = layout.width - layout.anchor_x;
-        if active {
-            scenery.opacity(1. - dismissal);
-            match self {
-                Self::Sunrise => sunrise::scenery(scenery, t, v, room),
-                Self::BridgeLift => bridge_lift::scenery(scenery, t, v),
-                Self::TurningTide { rising } => {
-                    turning_tide::draw(scenery, false, t, v, room, *rising)
-                }
-                Self::LastTrain { destination, time } => {
-                    last_train::scenery(scenery, t, v, destination, time)
-                }
-                _ => unreachable!(),
+        let [a, b, c] = match self {
+            Self::Note => return [eased(t, 0., 0.28), eased(t, 0.10, 0.55), 1., 1.],
+            Self::Rain(rain) => {
+                return if visible {
+                    rain.draw(t, active, scenery)
+                } else {
+                    rain.frame(t * 1000., !active).field_opacity
+                };
             }
-        }
-        let [a, b, c] = self.cues().unwrap();
+            Self::Flyover => {
+                if visible && t > 0. {
+                    flyover::scenery(
+                        scenery,
+                        flyover::center_x(layout.width, t / self.duration()) - layout.anchor_x,
+                    );
+                }
+                return [1.; 4];
+            }
+            Self::Sunrise => {
+                if visible {
+                    sunrise::scenery(scenery, t, v, room);
+                }
+                SUNRISE_CUES
+            }
+            Self::BridgeLift => {
+                if visible {
+                    bridge_lift::scenery(scenery, t, v);
+                }
+                BRIDGE_LIFT_CUES
+            }
+            Self::TurningTide { rising } => {
+                if visible {
+                    turning_tide::draw(scenery, false, t, v, room, *rising);
+                }
+                TURNING_TIDE_CUES
+            }
+            Self::LastTrain { destination, time } => {
+                if visible {
+                    last_train::scenery(scenery, t, v, destination, time);
+                }
+                LAST_TRAIN_CUES
+            }
+        };
         [
-            1.,
-            eased(t, a, a + 0.42),
-            eased(t, b, b + 0.42),
-            eased(t, c, c + 0.42),
+            eased(t, 0., 0.36),
+            eased(t, a, a + FIELD_FADE),
+            eased(t, b, b + FIELD_FADE),
+            eased(t, c, c + FIELD_FADE),
         ]
     }
 }

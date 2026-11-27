@@ -129,6 +129,9 @@ const char *avesd_overlay_content(const AvesdOverlaySession *session);
 // Advance with monotonic milliseconds since start and native hover hit testing.
 // True means the frame changed. A session is used on one playback thread.
 bool avesd_overlay_advance(AvesdOverlaySession *session, double elapsed_ms, bool inside);
+// Fade out the current event for replacement. Repeating the request preserves the original deadline.
+// Continue advancing until panel.alive is false before showing the next event.
+void avesd_overlay_begin_replacement(AvesdOverlaySession *session, double elapsed_ms);
 // Advances once and reports differences from the immediately preceding frame.
 // Read a full frame after creating a session. For subsequent updates, copy each
 // changed layer (including an empty layer) and retain owned copies of the others.

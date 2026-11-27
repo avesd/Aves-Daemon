@@ -19,11 +19,11 @@ final class LocalMurmurServer: ObservableObject {
     private let onReady: () -> Void
     private var listener: LoopbackHTTPListener?
 
-    init(port: UInt16, database: URL, credential: @escaping (Bool) throws -> String,
+    init(port: UInt16, events: LocalEventStore, credential: @escaping (Bool) throws -> String,
          allowsTrigger: @escaping () -> Bool, trigger: @escaping (String, Data) -> EventPolling.TriggerResult,
          onReady: @escaping () -> Void) {
         self.port = port
-        events = LocalEventStore(url: database)
+        self.events = events
         self.credential = credential
         self.allowsTrigger = allowsTrigger
         self.trigger = trigger
