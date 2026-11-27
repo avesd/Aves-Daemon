@@ -11,6 +11,7 @@ final class UsageAnalytics: ObservableObject {
     private struct EventHeader: Decodable { let kind: Kind }
 
     let isAvailable: Bool
+    let isDisabledByDoNotTrack: Bool
     @Published private(set) var isEnabled: Bool
     private let defaults: UserDefaults
     private let makeConfiguration: () -> PostHogConfig
@@ -18,6 +19,7 @@ final class UsageAnalytics: ObservableObject {
     private static let preferenceKey = "shareAnonymousUsageStatistics"
 
     init(isAvailable: Bool, defaults: UserDefaults,
+         environment: [String: String] = ProcessInfo.processInfo.environment,
          makeConfiguration: @escaping () -> PostHogConfig = {
              PostHogConfig(projectToken: "phc_AuP59cx4oqoooHueYQuyq8jriHN2zFnMBFM7C6rprfx7",
                            host: "https://us.i.posthog.com")
@@ -25,7 +27,8 @@ final class UsageAnalytics: ObservableObject {
         self.defaults = defaults
         self.makeConfiguration = makeConfiguration
         self.isAvailable = isAvailable
-        isEnabled = isAvailable && defaults.bool(forKey: Self.preferenceKey)
+        isDisabledByDoNotTrack = environment["DO_NOT_TRACK"] == "1"
+        isEnabled = isAvailable && !isDisabledByDoNotTrack && defaults.bool(forKey: Self.preferenceKey)
     }
 
     func appStarted() {
@@ -35,7 +38,7 @@ final class UsageAnalytics: ObservableObject {
     }
 
     func setEnabled(_ enabled: Bool) {
-        guard isAvailable, enabled != isEnabled else { return }
+        guard isAvailable, !isDisabledByDoNotTrack, enabled != isEnabled else { return }
         defaults.set(enabled, forKey: Self.preferenceKey)
         isEnabled = enabled
         if enabled { enableClient() } else { client?.optOut() }

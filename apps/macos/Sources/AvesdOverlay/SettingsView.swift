@@ -196,7 +196,10 @@ struct SettingsView: View {
                     get: { analytics.isEnabled }, set: { analytics.setEnabled($0) }
                 ))
                 .toggleStyle(.switch)
-                Text(SettingsText.analyticsDescription.string)
+                .disabled(analytics.isDisabledByDoNotTrack)
+                Text(analytics.isDisabledByDoNotTrack
+                     ? SettingsText.analyticsDisabled.string
+                     : SettingsText.analyticsDescription.string)
                     .font(.callout).foregroundStyle(.secondary)
             }
         }

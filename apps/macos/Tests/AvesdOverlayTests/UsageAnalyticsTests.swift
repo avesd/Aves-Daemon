@@ -12,16 +12,40 @@ import Testing
             Issue.record("The SDK started without Release consent")
             return PostHogConfig(projectToken: "")
         }
-        let fresh = UsageAnalytics(isAvailable: release.allowsUsageStatistics, defaults: defaults, makeConfiguration: unexpectedConfiguration)
+        let fresh = UsageAnalytics(isAvailable: release.allowsUsageStatistics, defaults: defaults,
+                                   environment: [:], makeConfiguration: unexpectedConfiguration)
         fresh.appStarted()
         #expect(!fresh.isEnabled && fresh.overlayShown(.preview) == nil)
 
         defaults.set(true, forKey: "shareAnonymousUsageStatistics")
         for (key, channel) in ChannelProfile.all where key != "release" {
-            let analytics = UsageAnalytics(isAvailable: channel.allowsUsageStatistics, defaults: defaults, makeConfiguration: unexpectedConfiguration)
+            let analytics = UsageAnalytics(isAvailable: channel.allowsUsageStatistics, defaults: defaults,
+                                           environment: [:], makeConfiguration: unexpectedConfiguration)
             analytics.setEnabled(true)
             analytics.appStarted()
             #expect(!analytics.isEnabled && analytics.overlayShown(.preview) == nil)
+        }
+    }
+}
+
+@MainActor
+@Test(arguments: [false, true])
+func doNotTrackOverridesConsentForOneLaunch(savedConsent: Bool) async {
+    await withDefaults { defaults in
+        defaults.set(savedConsent, forKey: "shareAnonymousUsageStatistics")
+        let analytics = UsageAnalytics(isAvailable: true, defaults: defaults, environment: ["DO_NOT_TRACK": "1"]) {
+            Issue.record("The SDK started with DO_NOT_TRACK=1")
+            return PostHogConfig(projectToken: "")
+        }
+        analytics.appStarted()
+        analytics.setEnabled(true)
+        #expect(analytics.isDisabledByDoNotTrack)
+        #expect(!analytics.isEnabled && analytics.overlayShown(.preview) == nil)
+
+        for environment in [[:], ["DO_NOT_TRACK": "0"]] {
+            let nextLaunch = UsageAnalytics(isAvailable: true, defaults: defaults, environment: environment)
+            #expect(!nextLaunch.isDisabledByDoNotTrack)
+            #expect(nextLaunch.isEnabled == savedConsent)
         }
     }
 }
@@ -65,7 +89,7 @@ import Testing
             .appending(path: token)
         defer { try? FileManager.default.removeItem(at: sdkStorage) }
         defaults.set(true, forKey: "shareAnonymousUsageStatistics")
-        let analytics = UsageAnalytics(isAvailable: release.allowsUsageStatistics, defaults: defaults) {
+        let analytics = UsageAnalytics(isAvailable: release.allowsUsageStatistics, defaults: defaults, environment: [:]) {
             let config = PostHogConfig(projectToken: token, host: host)
             config.compression = .none
             config.flushIntervalSeconds = 0.1
@@ -88,7 +112,7 @@ import Testing
         analytics.setEnabled(false)
         expandPreview?()
         #expect(analytics.overlayShown(.preview) == nil)
-        #expect(!UsageAnalytics(isAvailable: release.allowsUsageStatistics, defaults: defaults).isEnabled)
+        #expect(!UsageAnalytics(isAvailable: release.allowsUsageStatistics, defaults: defaults, environment: [:]).isEnabled)
         analytics.setEnabled(true)
         _ = analytics.overlayShown(.event(note, source: .poll))
 
