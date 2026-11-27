@@ -23,7 +23,7 @@ let package = Package(
     name: "AvesdOverlay",
     defaultLocalization: "en",
     platforms: [.macOS(.v13)],
-    dependencies: [.package(url: "https://github.com/PostHog/posthog-ios.git", exact: "4.0.11")],
+    dependencies: [.package(url: "https://github.com/PostHog/posthog-ios.git", exact: "4.1.1")],
     targets: updaterTargets + [
         .plugin(name: "CompileLocalizations", capability: .buildTool()),
         .target(name: "AvesdEnvironment", resources: [.embedInCode("channels.json")], plugins: ["CompileLocalizations"]),
