@@ -2,7 +2,7 @@
 
 ## Summary
 
-The joint Aves Daemon and Aves Daemon Service release audit found two defects in the macOS release tooling and one in local playback after upgrading a pre-channel build. An interrupted version application can leave the manifest ahead of its history and a retry can increment the build twice. The non-interactive changeset command can change dollar amounts in the saved release notes. On a source-built installation, moving the built-in queue to its new port can cause a pending note to expire before playback.
+The joint Aves Daemon and Aves Daemon Service release audit found two defects in the macOS release tooling and one in local playback after upgrading a pre-channel build. An interrupted version application can leave the manifest ahead of its history and a retry can increment the build twice. The literal release-summary and local playback upgrade findings are resolved. The interrupted version application remains open.
 
 ## Scope and Method
 
@@ -23,6 +23,7 @@ Reviewed the desktop worktree at `a4b82e7` from changeset creation through versi
 - **Evidence and decision boundary** The documented Make interface accepts the change summary as operator-supplied text. The release Makefile expands that text as a Make expression when passing it to Node. The note writer and quarterly changelog retain the resulting string. The appcast builder embeds the extracted notes and the publisher uses them as the GitHub release description. [Command contract](../../README.md#L75) · [Make export and summary check](../../make/release.mk#L6) · [Changeset writer](../../scripts/release/release-notes.ts#L95) · [Changelog writer](../../scripts/release/release-apply.ts#L73) · [Appcast notes](../../scripts/release/macos-appcast.sh#L15) · [GitHub release notes](../../scripts/release/publish-macos.sh#L20)
 - **Behavior and impact** The command received the literal summary `Document the $10-to-$25 price range.` in a single argument. Both the new note and its final changelog entry read `Document the 0-to-5 price range.` Make interpreted `$1` and `$2` as variable references. The commands succeeded, so the incorrect text can reach both release channels. An operator can correct the pending note before applying it. Interactive text entered directly into Node bypasses this Make expansion.
 - **Remediation and verification** Export the literal value with `$(value SUMMARY)` and use the same raw value for the desktop target-default check. Verify that a summary containing two dollar amounts survives changeset creation, version application and release-note extraction verbatim. Also exercise an ordinary summary and interactive creation without a summary argument.
+- **Status** Resolved. The Make export and desktop target-default check both use the literal summary. A disposable workspace verified currency, a summary containing only `$1`, ordinary text, the generated quarterly changelog, and extraction by the appcast script. The interactive Make flow also preserved the summary entered at its prompt. [Make export](../../make/release.mk#L6)
 
 ### AUDIT-003 - A port change can hide a pending note when upgrading a local build
 
@@ -30,6 +31,7 @@ Reviewed the desktop worktree at `a4b82e7` from changeset creation through versi
 - **Evidence and contract** The client retains prepared candidates and remembers played IDs across launches. Source commit `5249800`, which prepared 0.1.0, used port 47831. The current Release uses the same bundle ID, queue location and built-in source ID with port 28373. It loads the saved history, then looks up the IDs to send using a key that includes the new port. [Queue persistence](../../apps/macos/README.md#L48) · [Playback contract](../../apps/macos/README.md#L95) · [Earlier source and port](https://github.com/avesd/Aves-Daemon/blob/5249800dda58ac6f2be0352a06bfef06468806cd/apps/macos/Sources/AvesdOverlay/DaemonPreferences.swift#L14) · [Release profile](../../apps/macos/Sources/AvesdEnvironment/channels.json#L5) · [Local endpoint](../../apps/macos/Sources/AvesdOverlay/DaemonPreferences.swift#L29) · [Queue location](../../apps/macos/Sources/AvesdOverlay/main.swift#L34) · [History key](../../apps/macos/Sources/AvesdOverlay/EventPolling.swift#L22) · [Request exclusions](../../apps/macos/Sources/AvesdOverlay/EventPolling.swift#L87)
 - **Behavior and verification** An offline Swift check prepared two notes in temporary SQLite storage. The earlier poller played the newer note and saved its real source-history entry. Five simulated minutes later, the current poller using the old port as a control sent that ID and played the older note. Using the new port with a copy of the same state, it sent no IDs, received the newer note again and suppressed it locally. It learned the ID under the new port, but the older note reached its explicit seven-minute deadline before the next five-minute poll. That poll returned empty. This exercised the two polling implementations and the current store through a local fetch substitute. [Duplicate suppression](../../apps/macos/Sources/AvesdOverlay/EventPolling.swift#L113) · [Source attribution](../../apps/macos/Sources/AvesdOverlay/EventPolling.swift#L122) · [SQLite selection](../../apps/macos/Sources/AvesdOverlay/LocalServer/LocalEventStore.swift#L93)
 - **Remediation** When the Release channel reads the built-in queue's history, migrate recent IDs from its known old port into the current scope. Preserve their original timestamps and any newer entries already present. Verify that the first upgraded poll plays the pending note, that repeating the migration is harmless, and that other configured sources receive only their own history.
+- **Status** Resolved by the [local polling repair](2026-11-25-regional-and-local-polling.md). The built-in queue now selects using the full persisted playback history, which is independent of the loopback port. A Swift check started the current poller on the new port with old-port history and a temporary SQLite queue. The pending note played on the first round, and the next round did not replay it. [Queue selection](../../apps/macos/Sources/AvesdOverlay/EventPolling.swift#L119)
 
 ## Verification Record
 
@@ -42,11 +44,9 @@ Reviewed the desktop worktree at `a4b82e7` from changeset creation through versi
 ## Suggested Remediation Order
 
 1. `AUDIT-001` restores the version and history invariant across interrupted applies.
-2. `AUDIT-003` preserves pending local notes across the channel transition.
-3. `AUDIT-002` preserves operator-supplied text through the release channels.
 
 ## Follow-up Checklist
 
 - [ ] `AUDIT-001` Recover an interrupted patch with one build increment and one matching changelog and ledger entry.
-- [ ] `AUDIT-002` Preserve literal dollar amounts from the Make argument to the release notes.
-- [ ] `AUDIT-003` Retain the built-in source exclusions on the first poll after the port change.
+- [x] `AUDIT-002` Preserve literal dollar amounts from the Make argument to the release notes.
+- [x] `AUDIT-003` Retain the built-in source exclusions on the first poll after the port change.
