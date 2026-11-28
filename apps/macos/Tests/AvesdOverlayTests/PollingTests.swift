@@ -15,6 +15,7 @@ private actor Feeds {
     struct Call {
         let host: String
         let path: String
+        let encodedQuery: String?
         let played: [String]
     }
     private(set) var calls: [Call] = []
@@ -24,9 +25,9 @@ private actor Feeds {
     func fetch(_ request: URLRequest) async throws -> (Data, URLResponse) {
         let url = try #require(request.url)
         let host = try #require(url.host)
-        let query = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
-        let ids = query.filter { $0.name == "played" }.compactMap(\.value)
-        calls.append(Call(host: host, path: url.path, played: ids))
+        let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        let ids = (components?.queryItems ?? []).filter { $0.name == "played" }.compactMap(\.value)
+        calls.append(Call(host: host, path: url.path, encodedQuery: components?.percentEncodedQuery, played: ids))
         active += 1
         peakConcurrency = max(active, peakConcurrency)
         defer { active -= 1 }
@@ -287,5 +288,52 @@ func localCandidateExpiringDuringReplacementLetsAnotherSourcePlay() async throws
         #expect(await round.value)
         #expect(shown == ["Other"])
         #expect(defaults.dictionary(forKey: "recentlyPlayedEvents")?["Local"] == nil)
+    }
+}
+
+@MainActor
+@Test func fixedSourcesShareThePlaybackBudgetWithPresetQueryIDs() async throws {
+    try await withDefaults { defaults in
+        let now = Date()
+        let boundary = String(repeating: "é", count: 128)
+        let tooLong = boundary + "é"
+        let encodedTooLong = String(repeating: "%C3%A9", count: 129)
+        let configuredQuery = "mode=a%2fb+q&token=x=y&&flag&pl%61yed=preset%2BID&played=%FF&played=\(encodedTooLong)"
+        let source = MurmurSource(name: "Fixture", address: "https://history.test/event?\(configuredQuery)", mode: .fixed)
+        let presetIDs = (1...65).map { "preset-\($0)" }
+        let saturatedQuery = presetIDs.map { "played=\($0)" }.joined(separator: "&")
+        let saturated = MurmurSource(name: "Saturated", address: "https://saturated.test/event?\(saturatedQuery)&mode=keep", mode: .fixed)
+        let historyIDs = (1...64).map { "past-\($0)" }
+        var known = Dictionary(uniqueKeysWithValues: historyIDs.enumerated().map {
+            ($0.element, now.addingTimeInterval(TimeInterval(-$0.offset - 3)))
+        })
+        known["recent+ID"] = now.addingTimeInterval(-1)
+        known[boundary] = now.addingTimeInterval(-2)
+        known[tooLong] = now
+        defaults.set(["\(source.id)/https/history.test/-1": known], forKey: "playedEventsBySource")
+        let omitted = try #require(historyIDs.last)
+        defaults.set([omitted: now], forKey: "recentlyPlayedEvents")
+
+        let feeds = Feeds()
+        let events = LocalEventStore(url: FileManager.default.temporaryDirectory.appending(path: UUID().uuidString))
+        let poller = EventPolling(defaults: defaults, localServerURL: URL(string: "http://localhost")!, localEvents: events) { request in
+            let (_, response) = try await feeds.fetch(request)
+            return (Data(#"{"id":"\#(omitted)"}"#.utf8), response)
+        }
+        let played = await poller.poll(sources: { [source, saturated] }, cell: { nil }) { _, _, _ in
+            Issue.record("An ID omitted from the request was replayed")
+            return false
+        }
+        #expect(!played)
+
+        let calls = await feeds.calls
+        let call = try #require(calls.first { $0.host == "history.test" })
+        #expect(call.played == ["preset+ID", "recent+ID", boundary] + Array(historyIDs.prefix(61)))
+        #expect(call.encodedQuery?.hasPrefix("mode=a%2fb+q&token=x=y&&flag&pl%61yed=preset%2BID&") == true)
+        #expect(call.encodedQuery?.contains("played=recent%2BID") == true)
+        #expect(call.encodedQuery?.contains("%FF") == false)
+        let saturatedCall = try #require(calls.first { $0.host == "saturated.test" })
+        #expect(saturatedCall.played == Array(presetIDs.prefix(64)))
+        #expect(saturatedCall.encodedQuery?.hasSuffix("&mode=keep") == true)
     }
 }

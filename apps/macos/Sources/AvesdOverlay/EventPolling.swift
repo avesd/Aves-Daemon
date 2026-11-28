@@ -12,13 +12,31 @@ final class EventPolling: ObservableObject {
         let isLocal: Bool
 
         func pollURL(played: [String]) -> URL {
-            guard !played.isEmpty, var address = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return url }
-            var query = URLComponents()
-            query.queryItems = played.map { URLQueryItem(name: "played", value: $0) }
-            // Murmur decodes '+' as a space in a query. Encode literal plus signs in new IDs.
-            let history = query.percentEncodedQuery?.replacingOccurrences(of: "+", with: "%2B")
-            address.percentEncodedQuery = [address.percentEncodedQuery, history].compactMap { $0 }
-                .filter { !$0.isEmpty }.joined(separator: "&")
+            guard var address = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return url }
+
+            let maximumIDBytes = 256
+            var remaining = 64
+            let encodedItems = address.percentEncodedQueryItems ?? []
+            let retained = zip(encodedItems, address.queryItems ?? []).compactMap { encoded, item -> URLQueryItem? in
+                guard item.name == "played" else { return encoded }
+                if encoded.value != nil && item.value == nil { return nil }
+                guard remaining > 0, (item.value ?? "").utf8.count <= maximumIDBytes else { return nil }
+                remaining -= 1
+                return encoded
+            }
+            if retained.count != encodedItems.count {
+                address.percentEncodedQueryItems = retained.isEmpty ? nil : retained
+            }
+
+            let history = played.lazy.filter { $0.utf8.count <= maximumIDBytes }.prefix(remaining)
+            if !history.isEmpty {
+                var query = URLComponents()
+                query.queryItems = history.map { URLQueryItem(name: "played", value: $0) }
+                // Murmur decodes '+' as a space in a query. Encode literal plus signs in new IDs.
+                let encodedHistory = query.percentEncodedQuery?.replacingOccurrences(of: "+", with: "%2B")
+                address.percentEncodedQuery = [address.percentEncodedQuery, encodedHistory].compactMap { $0 }
+                    .filter { !$0.isEmpty }.joined(separator: "&")
+            }
             return address.url ?? url
         }
 
@@ -110,9 +128,9 @@ final class EventPolling: ObservableObject {
                         }
                     }
                 } else {
-                    let ids = (known[destination.historyScope] ?? [:]).filter { $0.key.utf8.count <= 256 }
+                    let ids = (known[destination.historyScope] ?? [:])
                         .sorted { $0.value == $1.value ? $0.key < $1.key : $0.value > $1.value }
-                        .prefix(64).map(\.key)
+                        .map(\.key)
                     let request = URLRequest(url: destination.pollURL(played: ids), cachePolicy: .reloadIgnoringLocalCacheData,
                                              timeoutInterval: 30)
                     group.addTask { [fetch] in (destination, await Self.request(request, fetch: fetch)) }
