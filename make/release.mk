@@ -3,12 +3,12 @@ BUMP ?= patch
 
 export AVESD_CHANGESET_TARGET = $(TARGET)
 export AVESD_CHANGESET_BUMP := $(BUMP)
-export AVESD_CHANGESET_SUMMARY := $(SUMMARY)
+export AVESD_CHANGESET_SUMMARY := $(value SUMMARY)
 
 .PHONY: $(RELEASE_TARGETS)
 
 version-dry-run version-packages: TARGET ?= apps/macos
-ifneq ($(strip $(SUMMARY)),)
+ifneq ($(strip $(value SUMMARY)),)
 changeset: TARGET ?= apps/macos
 endif
 
