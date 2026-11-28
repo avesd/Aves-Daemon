@@ -2,7 +2,7 @@
 
 ## Summary
 
-The joint Aves Daemon and Aves Daemon Service audit found three client defects. The highest priority is the macOS poller exceeding Murmur's playback-history limit. Two lower-impact presentation defects affect rain and sunrise events.
+The joint Aves Daemon and Aves Daemon Service audit found three client defects. The macOS playback-history limit defect is resolved. Two presentation defects affecting rain and sunrise events remain open.
 
 ## Scope and Method
 
@@ -17,6 +17,7 @@ Reviewed the macOS source configuration, history, regional requests, Rust event 
 - **Decision boundary** Local deduplication spans three hours across launches. The wire contract allows up to 64 IDs of at most 256 UTF-8 bytes each. [Client history contract](../../apps/macos/README.md#L43)
 - **Behavior and impact** A user running a one-minute fixed schedule against a busy source can play 65 distinct events within the retention window. Subsequent polls to that source return HTTP 400 until enough history expires. The stored history survives an app restart. The default five-minute schedule cannot reach 65 plays in three hours during ordinary continuous polling. [History persistence](../../apps/macos/Sources/AvesdOverlay/EventPolling.swift#L105)
 - **Remediation and verification** Keep the full local history. When serializing a request, choose the most recently played IDs that fit the wire limits and count any existing `played` parameters on fixed URLs toward the same budget. Verify that 64 and 65 eligible local records both produce valid requests, that other fixed-URL parameters survive and that an older ID omitted from the request still prevents a local replay.
+- **Status** Resolved. Fixed-source parameters and playback history share the same request budget. The native regression covers a preset ID plus a full history, over-limit presets and UTF-8 lengths, preserved query encoding, and suppression of an older ID omitted from the request. [Query construction](../../apps/macos/Sources/AvesdOverlay/EventPolling.swift#L14) · [Native regression](../../apps/macos/Tests/AvesdOverlayTests/PollingTests.swift#L295)
 
 ### AUDIT-002 - A rain event with one intensity field cannot play
 
@@ -43,16 +44,16 @@ Murmur supplies the Dutch bridge location code and the country as separate field
 - Compiled the current Swift poller and preferences with an in-memory history store. After 64 and 65 distinct playback callbacks, passed the generated URLs to the current Murmur public handler with all providers disabled. It returned 204 for 64 and 400 for 65.
 - Exercised the native entry point with neither rain intensity, only the previous value, only the current value and both values. Both single-field cases returned an empty handle. The two other cases produced summaries. The existing FFI test exercises the fieldless and paired cases. [FFI coverage](../../crates/avesd-ffi/src/overlay.rs#L137)
 - Passed locally generated flyover, rain, sunrise, bridge and turning-tide payloads through the client FFI. All five kinds opened a playback session. The six shared fixtures, including the last-train preview, matched byte for byte and all opened sessions. All 418 catalog time zones were accepted. Checked the Tokyo sunrise detail and accessibility output across consecutive civil days.
-- The targeted checks used local sources and synthetic upstream responses. The full repository validation suite was outside the verification performed for this report.
+- The targeted checks used local sources and synthetic upstream responses. The full repository validation suite was outside the original verification.
+- The follow-up passed the native polling tests, repository-root `make validate`, and the Local application build. This Mac used installed Rust 1.93.0, above the project minimum, in place of the pinned Rust 1.100.0.
 
 ## Suggested Remediation Order
 
-1. `AUDIT-001` restores event delivery to an affected source.
-2. `AUDIT-002` restores playback for valid custom rain events.
-3. `AUDIT-003` corrects the displayed and spoken sunrise comparison.
+1. `AUDIT-002` restores playback for valid custom rain events.
+2. `AUDIT-003` corrects the displayed and spoken sunrise comparison.
 
 ## Follow-up Checklist
 
-- [ ] `AUDIT-001` Keep full three-hour local deduplication while producing a valid bounded request.
+- [x] `AUDIT-001` Keep full three-hour local deduplication while producing a valid bounded request.
 - [ ] `AUDIT-002` Play valid rain events under all four field combinations.
 - [ ] `AUDIT-003` Describe a zero whole-minute difference accurately in both output channels.
